@@ -78,14 +78,14 @@ export const upgradeById = (id) => UPGRADES.find((u) => u.id === id) || null;
 export const maxLevel = (u) => u.levels.length - 1;
 
 export const SKINS = Object.freeze([
-  { id: 'pink', name: 'Classic Pink', cost: 0, body: '#ffb0c4', shade: '#ee88a4', snout: '#ff95b3', ear: '#f07c9c', trail: '#ffffff' },
-  { id: 'spotted', name: 'Spotted', cost: 300, body: '#ffdbe4', shade: '#efb0c0', snout: '#ffb3c6', ear: '#e992a8', spots: '#5b3a2a', trail: '#ffe7ef' },
-  { id: 'mud', name: 'Mud Pig', cost: 650, body: '#c29470', shade: '#976947', snout: '#d6a882', ear: '#8e6240', spots: '#6a4529', trail: '#b58860' },
-  { id: 'boar', name: 'Wild Boar', cost: 1300, body: '#81604a', shade: '#5c4130', snout: '#a27a62', ear: '#5c4130', tusks: true, mohawk: '#2e2018', trail: '#d4ad86' },
-  { id: 'robo', name: 'Robo Pig', cost: 2800, body: '#c9d4df', shade: '#93a3b3', snout: '#aebccb', ear: '#8898a8', antenna: true, eye: '#39e1ff', trail: '#39e1ff' },
-  { id: 'astro', name: 'Astronaut', cost: 5500, body: '#ffb0c4', shade: '#ee88a4', snout: '#ff95b3', ear: '#f07c9c', bubble: true, trail: '#9fe3ff' },
-  { id: 'unicorn', name: 'Unicorn', cost: 9500, body: '#fff2fb', shade: '#f0c8e6', snout: '#ffc6ea', ear: '#f3a9d9', horn: true, trail: 'rainbow' },
-  { id: 'golden', name: 'Golden Pig', cost: null, unlock: 'moon', body: '#ffd54a', shade: '#e0a414', snout: '#ffe07a', ear: '#e6a51c', glow: true, trail: '#ffe45c' },
+  { id: 'pink', name: 'Porcellino Classico', cost: 0, body: '#ffb0c4', shade: '#ee88a4', snout: '#ff95b3', ear: '#f07c9c', trail: '#ffffff' },
+  { id: 'spotted', name: 'Maialino Spottolino', cost: 300, body: '#ffdbe4', shade: '#efb0c0', snout: '#ffb3c6', ear: '#e992a8', spots: '#5b3a2a', trail: '#ffe7ef' },
+  { id: 'mud', name: 'Fangolino Pigolino', cost: 650, body: '#c29470', shade: '#976947', snout: '#d6a882', ear: '#8e6240', spots: '#6a4529', trail: '#b58860' },
+  { id: 'boar', name: 'Cinghiale Sigmale', cost: 1300, body: '#81604a', shade: '#5c4130', snout: '#a27a62', ear: '#5c4130', tusks: true, mohawk: '#2e2018', trail: '#d4ad86' },
+  { id: 'robo', name: 'Robotto Porcotto', cost: 2800, body: '#c9d4df', shade: '#93a3b3', snout: '#aebccb', ear: '#8898a8', antenna: true, eye: '#39e1ff', trail: '#39e1ff' },
+  { id: 'astro', name: 'Astronauta Pigletta', cost: 5500, body: '#ffb0c4', shade: '#ee88a4', snout: '#ff95b3', ear: '#f07c9c', bubble: true, trail: '#9fe3ff' },
+  { id: 'unicorn', name: 'Unicornino Arcobalenino', cost: 9500, body: '#fff2fb', shade: '#f0c8e6', snout: '#ffc6ea', ear: '#f3a9d9', horn: true, trail: 'rainbow' },
+  { id: 'golden', name: 'Porchetta Dorata', cost: null, unlock: 'moon', body: '#ffd54a', shade: '#e0a414', snout: '#ffe07a', ear: '#e6a51c', glow: true, trail: '#ffe45c' },
 ]);
 
 export const skinById = (id) => SKINS.find((s) => s.id === id) || SKINS[0];

@@ -304,8 +304,75 @@ export function createPig() {
     parts.smile.visible = face === 'happy' || face === 'determined';
   }
 
+  // ---------- shatter: cartoon break-apart into the model's own parts ----------
+  const pieces = [];
+  let pieceScene = null;
+  const tmpV = new THREE.Vector3();
+  const tmpQ = new THREE.Quaternion();
+  const tmpS = new THREE.Vector3();
+
+  function shatter(scene, power = 1) {
+    if (pieces.length) return;
+    pieceScene = scene;
+    root.updateMatrixWorld(true);
+    const center = new THREE.Vector3().setFromMatrixPosition(root.matrixWorld);
+    const size = root.scale.x;
+    root.traverse((o) => {
+      if (!o.isMesh || !o.visible || !o.geometry) return;
+      let vis = true;
+      for (let p = o.parent; p; p = p.parent) if (!p.visible) vis = false;
+      if (!vis || o.material.blending === THREE.AdditiveBlending) return;
+      o.matrixWorld.decompose(tmpV, tmpQ, tmpS);
+      const m = new THREE.Mesh(o.geometry, o.material);
+      m.position.copy(tmpV);
+      m.quaternion.copy(tmpQ);
+      m.scale.copy(tmpS);
+      m.castShadow = true;
+      const dir = tmpV.clone().sub(center);
+      dir.z += (Math.random() - 0.5) * size;
+      if (dir.lengthSq() < 1e-4) dir.set(Math.random() - 0.5, 1, Math.random() - 0.5);
+      dir.normalize();
+      const sp = (6 + Math.random() * 8) * power * Math.sqrt(size);
+      m.userData.v = new THREE.Vector3(dir.x * sp, Math.abs(dir.y) * sp + (5 + Math.random() * 6) * Math.sqrt(size), dir.z * sp);
+      m.userData.w = new THREE.Vector3((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14);
+      m.userData.r = 0.25 * size;
+      scene.add(m);
+      pieces.push(m);
+    });
+    root.visible = false;
+  }
+
+  function updatePieces(dt, floorAt) {
+    for (const m of pieces) {
+      const u = m.userData;
+      u.v.y -= 28 * dt;
+      m.position.addScaledVector(u.v, dt);
+      const floor = floorAt(m.position.x, m.position.z) + u.r;
+      if (m.position.y < floor) {
+        m.position.y = floor;
+        u.v.y = Math.abs(u.v.y) * 0.38;
+        u.v.x *= 0.62;
+        u.v.z *= 0.62;
+        u.w.multiplyScalar(0.6);
+      }
+      m.rotation.x += u.w.x * dt;
+      m.rotation.y += u.w.y * dt;
+      m.rotation.z += u.w.z * dt;
+    }
+  }
+
+  function reassemble() {
+    for (const m of pieces) pieceScene.remove(m);
+    pieces.length = 0;
+    root.visible = true;
+  }
+
   return {
     root,
+    shatter,
+    updatePieces,
+    reassemble,
+    get shattered() { return pieces.length > 0; },
     // opts: { skin, tiers, face, boosting, t, squash, flap }
     update({ skin, tiers, face = 'happy', boosting = false, t = 0, squash = 0, flap = 1 }) {
       applySkin(skin);

@@ -261,10 +261,16 @@ export function createGround(scene) {
         }
       }
       if (!visible) return;
+      // Build nearest-first, one chunk per frame once the start area exists
+      // (building several at once caused frame hitches mid-flight).
+      const order = [];
+      for (let i = i0; i <= i1; i++) if (!chunks.has(i)) order.push(i);
+      const mid = (i0 + i1) / 2;
+      order.sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));
+      const budget = chunks.size < 3 ? 6 : 1;
       let built = 0;
-      for (let i = i0; i <= i1; i++) {
-        if (chunks.has(i)) continue;
-        if (built >= 3) break;
+      for (const i of order) {
+        if (built >= budget) break;
         const g = build(terrain, i);
         scene.add(g);
         chunks.set(i, g);

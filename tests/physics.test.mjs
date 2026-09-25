@@ -95,3 +95,18 @@ test('second wind relaunches a finished flight', () => {
   assert.ok(f.distance > before);
   assert.equal(f.rebounded, true);
 });
+
+test('coins are collected while sliding along the ground', () => {
+  const world = createWorld(7);
+  const f = createFlight(computeStats({}), { power: 1 });
+  const x = 60;
+  const coin = { id: 'ground-coin', type: 'coin', x, y: world.terrain.height(x) + 1.6, r: 0.55, value: 1, star: false };
+  const groundWorld = { ...world, query: (x0, y0, x1, y1, out = []) => { world.query(x0, y0, x1, y1, out); out.push(coin); return out; } };
+  f.x = x - 6;
+  f.y = world.terrain.height(f.x) + 0.9;
+  f.vx = 12;
+  f.vy = 0;
+  f.grounded = true;
+  for (let i = 0; i < 240 && !f.done && f.x < x + 2; i++) stepFlight(f, idle, STEP, groundWorld);
+  assert.ok(f.taken.has('ground-coin'), 'sliding pig should pick up the coin it passes through');
+});

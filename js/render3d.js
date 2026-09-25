@@ -233,6 +233,12 @@ export function createRenderer(canvas) {
       skin: s.skin, tiers: s.tiers, face: s.face, boosting: s.boosting, t: s.t, squash: s.squash,
       flap: s.mode === 'flying' ? 1 : 0.3,
     });
+    // Crash ending: Pip bursts into cartoon pieces; any new flight (or a
+    // Second Wind rebound) puts the pig back together.
+    const crashed = f && !ready && f.done && !f.moon && f.cause !== 'quit';
+    if (crashed && !pig.shattered) pig.shatter(scene, f.cause === 'mud' ? 0.8 : 1.15);
+    else if (!crashed && pig.shattered) pig.reassemble();
+    if (pig.shattered) pig.updatePieces(dt, (x, z) => ground.heightAt(s.world.terrain, x, z));
     carrier.visible = Boolean(abductUfo);
     if (abductUfo) {
       const u = { ...abductUfo, x: f.x, y: f.y + abductUfo.r * 2.2, beam: abductUfo.r * 2.4 };
@@ -250,5 +256,16 @@ export function createRenderer(canvas) {
   }
 
   resize();
+  // Compile every shader up front: first-use compiles caused mid-flight hitches.
+  try {
+    const done = objects.prewarm();
+    pig.update({ skin: { id: 'warm', body: '#ffb0c4', snout: '#ff95b3', ear: '#f07c9c', glow: true, trail: '#fff' }, tiers: { wings: 6, rocket: 6, helmet: 4 }, boosting: true });
+    camera.position.set(0, 30, 60);
+    camera.lookAt(0, 25, 0);
+    gl.compile(scene, camera);
+    done();
+  } catch (err) {
+    console.warn('[render] shader prewarm failed', err);
+  }
   return { frame, resize, view, toScreen };
 }

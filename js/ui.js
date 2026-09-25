@@ -63,7 +63,7 @@ export function createUI(handlers) {
       const key = `${Math.floor(h.alt)}|${kmh(h.speed)}|${Math.floor(h.dist)}|${h.coins}|${Math.round((h.fuel / (h.fuelMax || 1)) * 100)}|${h.canSkip}`;
       if (key === lastHud) return;
       lastHud = key;
-      el.alt.textContent = formatDistance(h.alt);
+      el.alt.textContent = formatDistance(Math.max(0, h.alt));
       el.speed.textContent = `${kmh(h.speed)} km/h`;
       el.dist.textContent = formatDistance(h.dist);
       if (h.coins !== lastCoins) {
@@ -124,6 +124,16 @@ export function createUI(handlers) {
       el.banner.classList.add('show');
       clearTimeout(bannerTimer);
       bannerTimer = setTimeout(() => el.banner.classList.remove('show'), ms);
+    },
+    // Big "6 7" callout with the two-hands weighing gesture.
+    sixSeven(what) {
+      const el6 = document.getElementById('six-seven');
+      el6.querySelector('.what').textContent = what;
+      el6.classList.remove('show');
+      void el6.offsetWidth;
+      el6.classList.add('show');
+      clearTimeout(this.sixTimer);
+      this.sixTimer = setTimeout(() => el6.classList.remove('show'), 1900);
     },
     toast(html) {
       const t = document.createElement('div');

@@ -47,7 +47,7 @@ export function createAudio() {
       master.gain.value = 0;
       master.connect(ctx.destination);
       musicBus = ctx.createGain();
-      musicBus.gain.value = 0.13;
+      musicBus.gain.value = 0.2;
       musicBus.connect(master);
       sfxBus = ctx.createGain();
       sfxBus.gain.value = 0.9;
@@ -78,7 +78,7 @@ export function createAudio() {
     osc.stop(t + dur + 0.05);
   }
 
-  function noise({ dur = 0.2, vol = 0.3, freq = 800, q = 1, type = 'bandpass', delay = 0, sweep = 0 }) {
+  function noise({ dur = 0.2, vol = 0.3, freq = 800, q = 1, type = 'bandpass', delay = 0, sweep = 0, bus = sfxBus }) {
     if (!ctx) return;
     const t = ctx.currentTime + delay;
     const src = ctx.createBufferSource();
@@ -91,35 +91,112 @@ export function createAudio() {
     const g = ctx.createGain();
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(filter).connect(g).connect(sfxBus);
+    src.connect(filter).connect(g).connect(bus);
     src.start(t, Math.random());
     src.stop(t + dur + 0.05);
   }
 
-  // Bouncy farm tune that fades into a spacey arpeggio with altitude.
+  // 808-style cowbell: two detuned squares through a bandpass, short decay.
+  function cowbell(freq, delay, vol) {
+    if (!ctx) return;
+    const t = ctx.currentTime + delay;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = freq * 1.6;
+    bp.Q.value = 2.5;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+    for (const k of [1, 1.48]) {
+      const o = ctx.createOscillator();
+      o.type = 'square';
+      o.frequency.value = freq * k;
+      o.connect(bp);
+      o.start(t);
+      o.stop(t + 0.3);
+    }
+    bp.connect(g).connect(musicBus);
+  }
+
+  // Distorted 808 bass with a pitch drop (the phonk "boom").
+  let shaper = null;
+  function bass808(freq, delay, vol, dur = 0.45) {
+    if (!ctx) return;
+    if (!shaper) {
+      shaper = ctx.createWaveShaper();
+      const curve = new Float32Array(256);
+      for (let i = 0; i < 256; i++) { const x = (i / 128) - 1; curve[i] = Math.tanh(x * 3.5); }
+      shaper.curve = curve;
+      shaper.connect(musicBus);
+    }
+    const t = ctx.currentTime + delay;
+    const o = ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(freq * 2.2, t);
+    o.frequency.exponentialRampToValueAtTime(freq, t + 0.06);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(shaper);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+  }
+
+  function hat(delay, vol, open = false) {
+    noise({ dur: open ? 0.14 : 0.035, vol, freq: 8000, q: 0.7, type: 'highpass', delay, bus: musicBus });
+  }
+
+  // Original drift-phonk loop (cowbell riff over 808s), fading into a spacey
+  // arpeggio with altitude. 16th-note grid.
+  const RIFF = [0, null, 0, 3, null, 5, 3, null, 7, null, 5, 3, null, 0, -2, null];
+  const RIFF_B = [0, null, 0, 3, null, 5, 7, null, 10, null, 7, 5, null, 3, 5, null];
+  const ROOTS = [0, 0, -4, -2];
   function scheduleMusic() {
     if (!ctx) return;
-    const spb = 60 / 116 / 2;
+    const sp16 = 60 / 132 / 4;
     if (nextBeat < ctx.currentTime - 0.2) nextBeat = ctx.currentTime + 0.05;
     while (nextBeat < ctx.currentTime + 0.3) {
       const d = nextBeat - ctx.currentTime;
-      const bar = Math.floor(beat / 8) % 4;
-      const root = [0, 5, 7, 5][bar];
+      const step = beat % 16;
+      const bar = Math.floor(beat / 16) % 4;
+      const root = ROOTS[bar];
       const farm = 1 - spaceMix;
+      const swing = step % 2 ? sp16 * 0.12 : 0;
       if (farm > 0.05) {
-        if (beat % 4 === 0) tone({ freq: noteHz(root - 24), type: 'triangle', dur: 0.28, vol: 0.5 * farm, bus: musicBus, delay: d });
-        if (beat % 4 === 2) tone({ freq: noteHz(root - 12 + 7), type: 'triangle', dur: 0.18, vol: 0.28 * farm, bus: musicBus, delay: d });
-        const melody = [0, 2, 4, 2, 7, 4, 2, 4];
-        if (beat % 2 === 0 || Math.random() < 0.2) {
-          tone({ freq: noteHz(root + MAJOR_PENTA[(melody[beat % 8] + bar) % MAJOR_PENTA.length]), type: 'square', dur: 0.14, vol: 0.12 * farm, bus: musicBus, delay: d });
-        }
+        const riff = bar === 3 ? RIFF_B : RIFF;
+        const n = riff[step];
+        if (n !== null) cowbell(noteHz(root + n + 7), d + swing, 0.5 * farm);
+        if (step === 0 || step === 10 || (bar % 2 && step === 7)) bass808(noteHz(root - 24 + 7) / 2, d, 0.7 * farm, step === 0 ? 0.6 : 0.35);
+        if (step === 8) { noise({ dur: 0.16, vol: 0.4 * farm, freq: 1800, q: 0.9, delay: d, bus: musicBus }); noise({ dur: 0.08, vol: 0.3 * farm, freq: 900, q: 1.2, delay: d + 0.012, bus: musicBus }); }
+        hat(d + swing, (step % 4 === 2 ? 0.16 : 0.07) * farm, step === 14);
       }
-      if (spaceMix > 0.05) {
-        if (beat % 16 === 0) tone({ freq: noteHz(root - 12), type: 'sine', dur: 3.2, vol: 0.4 * spaceMix, bus: musicBus, delay: d, attack: 0.8 });
-        tone({ freq: noteHz(root + 12 + [0, 7, 12, 16][beat % 4]), type: 'sine', dur: 0.5, vol: 0.12 * spaceMix, bus: musicBus, delay: d });
+      if (spaceMix > 0.05 && step % 2 === 0) {
+        const b8 = beat / 2;
+        if (b8 % 16 === 0) tone({ freq: noteHz(root - 12), type: 'sine', dur: 3.2, vol: 0.4 * spaceMix, bus: musicBus, delay: d, attack: 0.8 });
+        tone({ freq: noteHz(root + 12 + [0, 7, 12, 15][b8 % 4]), type: 'sine', dur: 0.5, vol: 0.12 * spaceMix, bus: musicBus, delay: d });
+        if (step === 0) bass808(noteHz(root - 17) / 2, d, 0.35 * spaceMix);
       }
-      nextBeat += spb;
+      nextBeat += sp16;
       beat += 1;
+    }
+  }
+
+  // Robot voice (speech synthesis) for meme callouts; respects mute and ads.
+  let lastSpeak = 0;
+  function say(text, rate = 1.05, pitch = 0.8) {
+    try {
+      if (userMuted || adMuted || !window.speechSynthesis || !ctx) return;
+      const now = performance.now();
+      if (now - lastSpeak < 1500) return;
+      lastSpeak = now;
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = rate;
+      u.pitch = pitch;
+      u.volume = 0.9;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+    } catch (err) {
+      console.warn('[audio] speech failed', err);
     }
   }
 
@@ -127,8 +204,28 @@ export function createAudio() {
 
   return {
     unlock,
-    setMuted(m) { userMuted = m; applyGain(); },
-    setAdMuted(m) { adMuted = m; applyGain(); },
+    setMuted(m) { userMuted = m; applyGain(); if (m && window.speechSynthesis) window.speechSynthesis.cancel(); },
+    setAdMuted(m) { adMuted = m; applyGain(); if (m && window.speechSynthesis) window.speechSynthesis.cancel(); },
+    say,
+    // "six seven": the voice plus two cowbell hits.
+    sixSeven() {
+      cowbell(noteHz(12), 0, 0.9);
+      cowbell(noteHz(14), 0.32, 0.9);
+      bass808(noteHz(-5), 0, 0.8);
+      say('six seven', 1.1, 0.7);
+    },
+    // Party airhorn: three detuned saws pulsing.
+    airhorn() {
+      [0, 0.18, 0.3].forEach((dl, i) => {
+        for (const f of [440, 443, 554]) tone({ freq: f, type: 'sawtooth', dur: i === 2 ? 0.5 : 0.13, vol: 0.07, delay: dl, attack: 0.005 });
+      });
+    },
+    // Deep dramatic boom (fail / crash hit).
+    boom(big) {
+      tone({ freq: big ? 70 : 90, type: 'sine', dur: big ? 1.4 : 0.8, vol: big ? 0.9 : 0.6, slide: 0.45, attack: 0.005 });
+      noise({ dur: big ? 0.9 : 0.4, vol: big ? 0.7 : 0.4, freq: 180, type: 'lowpass', sweep: 0.4 });
+      if (big) tone({ freq: 45, type: 'triangle', dur: 1.2, vol: 0.5, slide: 0.6, delay: 0.02 });
+    },
     get muted() { return userMuted; },
     startMusic() {
       if (!ctx || musicTimer) return;

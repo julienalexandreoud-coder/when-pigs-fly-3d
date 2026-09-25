@@ -242,6 +242,8 @@ function stepGround(f, dt, world) {
   f.x += f.vx * dt;
   f.y = terrain.height(f.x) + PIG_R;
   f.angle += wrapAngle(ang - f.angle) * Math.min(1, 10 * dt);
+  // Pickups along the ground (the starter coin trail) count while sliding too.
+  collideSky(f, world, dt, f.scratch);
   f.distance = Math.max(f.distance, f.x);
   if (collideGroundFeatures(f, terrain)) return;
   if (Math.abs(f.vx) < END_SPEED) end(f, 'landed');

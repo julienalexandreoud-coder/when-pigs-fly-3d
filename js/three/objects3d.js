@@ -417,6 +417,25 @@ export function createObjects(scene) {
     clear() {
       for (const [id, m] of active) release(id, m);
     },
+    // Builds one of every model into the pools (call once, then compile the scene
+    // so shader programs exist before the first flight instead of mid-flight).
+    prewarm() {
+      const out = [];
+      for (const type of Object.keys(MAKERS)) {
+        const m = acquire(type);
+        m.userData.type = type;
+        m.position.set(0, -500, 0);
+        scene.add(m);
+        out.push(m);
+      }
+      return () => {
+        for (const m of out) {
+          scene.remove(m);
+          if (!pools.has(m.userData.type)) pools.set(m.userData.type, []);
+          pools.get(m.userData.type).push(m);
+        }
+      };
+    },
     // A standalone UFO carrying the pig during an abduction.
     makeUfo() {
       const m = MAKERS.ufo();

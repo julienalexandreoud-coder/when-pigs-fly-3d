@@ -7,7 +7,10 @@ export function createFx() {
   const parts = [];
   const texts = [];
   const rings = [];
+  const booms = [];
+  const chunks = [];
   let shake = 0;
+  let slow = 0;
   let flash = 0;
   let flashColor = '255,255,255';
 
@@ -20,6 +23,31 @@ export function createFx() {
     // Read-only views for renderers.
     get parts() { return parts; },
     get rings() { return rings; },
+    get booms() { return booms; },
+    get chunks() { return chunks; },
+    // Cartoon explosion: fireball + shockwave + smoke, rendered in 3D.
+    // kind: 'fire' | 'dirt' | 'mud' | 'water' | 'spark'
+    boom(x, y, size = 4, kind = 'fire') {
+      if (booms.length > 12) booms.shift();
+      booms.push({ x, y, size, kind, age: 0, life: kind === 'water' ? 1.1 : 0.9 });
+    },
+    // 3D debris cubes with gravity; y is clamped to `floor` if given.
+    debris(x, y, n, { colors = ['#8d5a35'], speed = 14, size = 0.5, up = 0.6, life = 1.6, floor = null } = {}) {
+      for (let i = 0; i < n; i++) {
+        if (chunks.length >= 160) chunks.shift();
+        const a = Math.random() * Math.PI * 2;
+        const v = speed * (0.4 + Math.random() * 0.8);
+        chunks.push({
+          x, y, z: (Math.random() - 0.5) * size * 4,
+          vx: Math.cos(a) * v * 0.8, vy: Math.abs(Math.sin(a)) * v * up + v * 0.35, vz: (Math.random() - 0.5) * v,
+          rx: Math.random() * 6, ry: Math.random() * 6, spin: (Math.random() - 0.5) * 16,
+          size: size * (0.5 + Math.random()), color: colors[i % colors.length], age: 0, life: life * (0.7 + Math.random() * 0.6), floor,
+        });
+      }
+    },
+    // Slow motion for `seconds` (game time scale drops to about 0.3).
+    slowmo(seconds) { slow = Math.max(slow, seconds); },
+    timeScale() { return slow > 0 ? 0.32 : 1; },
     burst(x, y, n, { colors = ['#ffffff'], speed = 8, life = 0.8, size = 6, kind = 'dot', gravity = 9, drag = 1.5, spread = Math.PI * 2, dir = 0, scale = 1 } = {}) {
       for (let i = 0; i < n; i++) {
         const a = dir + (Math.random() - 0.5) * spread;
@@ -53,6 +81,9 @@ export function createFx() {
       parts.length = 0;
       texts.length = 0;
       rings.length = 0;
+      booms.length = 0;
+      chunks.length = 0;
+      slow = 0;
       shake = 0;
       flash = 0;
     },
@@ -76,6 +107,29 @@ export function createFx() {
         rings[i].age += dt;
         if (rings[i].age >= rings[i].life) rings.splice(i, 1);
       }
+      for (let i = booms.length - 1; i >= 0; i--) {
+        booms[i].age += dt;
+        if (booms[i].age >= booms[i].life) booms.splice(i, 1);
+      }
+      for (let i = chunks.length - 1; i >= 0; i--) {
+        const c = chunks[i];
+        c.age += dt;
+        if (c.age >= c.life) { chunks.splice(i, 1); continue; }
+        c.vy -= 30 * dt;
+        c.x += c.vx * dt;
+        c.y += c.vy * dt;
+        c.z += c.vz * dt;
+        if (c.floor !== null && c.y < c.floor) {
+          c.y = c.floor;
+          c.vy = Math.abs(c.vy) * 0.35;
+          c.vx *= 0.6;
+          c.vz *= 0.6;
+          c.spin *= 0.5;
+        }
+        c.rx += c.spin * dt;
+        c.ry += c.spin * 0.7 * dt;
+      }
+      slow = Math.max(0, slow - dt / 0.32);
       shake = Math.max(0, shake - dt * 40);
       flash = Math.max(0, flash - dt * 2.5);
     },

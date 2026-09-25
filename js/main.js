@@ -44,7 +44,7 @@ const S = {
   meterT: 0, pull: 0, launchKick: 0, farmerCheer: 0, trampT: new Map(), trail: [], trailT: 0,
   squash: 0, golden: false, banked: null, result: null, doubled: false, backTo: 'ready',
   prevBest: 0, recordShown: false, shownMissions: new Set(), hintUntil: 0, hintKind: null,
-  username: null, adBusy: false, autoplay: false, endTimer: 0,
+  username: null, adBusy: false, autoplay: false, endTimer: 0, sixSeven: new Set(),
 };
 
 const canAds = () => Sdk.available || DEBUG;
@@ -119,6 +119,7 @@ function launch() {
   S.prevBest = save.best.alt;
   S.recordShown = false;
   S.shownMissions = new Set();
+  S.sixSeven = new Set();
   S.hintKind = null;
   S.launchKick = 1;
   S.farmerCheer = -1;
@@ -137,6 +138,7 @@ function launch() {
   fx.burst(S.flight.x, S.flight.y, big ? 18 : 8, { colors: big ? ['#ffffff', '#dee2e6', '#ffd166'] : ['#ffffff'], speed: 10, life: 0.6, size: 7, kind: 'smoke', gravity: -2, dir: LAUNCH_ANGLE, spread: 1.2 });
   if (zone === 'perfect') {
     audio.perfect();
+    audio.airhorn();
     fx.flash('255,255,255', 0.35);
     ui.banner('PERFECT!', '+1000 AURA', 1000);
   } else if (zone === 'weak') {
@@ -178,8 +180,28 @@ function updateHints() {
   }
 }
 
+// "6 7" meme moments: altitude crossing 67 / 670 / 6,700 m, or exactly 67 coins.
+const SIX_SEVEN_ALTS = [67, 670, 6700];
+function sixSevenChecks() {
+  const f = S.flight;
+  for (const a of SIX_SEVEN_ALTS) {
+    if (!S.sixSeven.has(a) && f.maxAlt >= a && f.maxAlt < a * 1.6) {
+      S.sixSeven.add(a);
+      ui.sixSeven(`${a.toLocaleString('en-US')} M`);
+      audio.sixSeven();
+      return;
+    }
+  }
+  if (!S.sixSeven.has('coins') && f.coins === 67) {
+    S.sixSeven.add('coins');
+    ui.sixSeven('67 COINS');
+    audio.sixSeven();
+  }
+}
+
 function liveChecks() {
   const f = S.flight;
+  sixSevenChecks();
   for (const m of save.missions.active) {
     if (!S.shownMissions.has(m.kind) && missionDone(m, f)) {
       S.shownMissions.add(m.kind);
@@ -246,8 +268,10 @@ function flightOver() {
   Sdk.gameplayStop();
   const summary = summarize(f);
   const res = recordFlight(save, summary, { banked: S.banked });
-  persist(res.save);
-  S.result = { ...res, summary };
+  // Payout that contains "67" earns a +67 meme bonus.
+  const sixSeven = String(res.payout.total).includes('67') ? 67 : 0;
+  persist(sixSeven ? addCoins(res.save, sixSeven) : res.save);
+  S.result = { ...res, summary, sixSeven };
   if (res.records.alt || res.medals.length || res.firstMoon) Sdk.happytime();
   if (f.moon) {
     audio.moon();
@@ -268,13 +292,14 @@ function resultsView() {
     ...missions.map((m) => ({ kind: 'mission', text: `Quest cleared: ${missionText(m)} +${formatInt(m.reward)}` })),
   ];
   if (S.banked !== null) extras.unshift({ kind: 'medal', text: `Second wind earned +${formatInt(earned)}` });
+  if (S.result.sixSeven) extras.unshift({ kind: 'mission', text: `🤲 6 7 bonus (payout had a 67) +67` });
   let title = 'not bad fr';
   if (summary.moon) title = 'TO THE MOON!';
-  else if (records.alt && S.prevBest >= 30) title = 'NEW RECORD!';
+  else if (records.alt && S.prevBest >= 30) title = 'BIG W. NEW RECORD';
   else if (summary.cause === 'mud') title = 'MUD MOMENT';
   else if (summary.cause === 'splash') title = 'SPLOOSH';
   else if (summary.maxAlt >= 1000) title = 'HUGE AURA';
-  else if (summary.time < 6) title = 'SPLAT 💀';
+  else if (summary.time < 6) title = 'L + SPLAT 💀';
   const goal = nextGoal(save);
   return {
     title, cause: CAUSES[summary.cause] || '', lines, total: pay.total, extras,
@@ -292,6 +317,7 @@ function showResults() {
   ui.show('results');
   ui.badge(affordableCount(save));
   const r = S.result;
+  if (r.sixSeven) setTimeout(() => audio.sixSeven(), 700);
   if (r.medals.length) {
     audio.medal();
     fx.burst(S.flight.x, S.flight.y + 3, 50, { colors: ['#ffd23f', '#ff7aa2', '#80ed99', '#9bf6ff'], speed: 16, life: 1.6, size: 8, kind: 'confetti', gravity: 9, scale: scaleAt(S.flight.y) });
@@ -439,6 +465,9 @@ const input = createInput(canvas, {
 
 const juice = createJuice({ fx, audio, ui });
 
+window.addEventListener('pointerdown', () => { audio.unlock(); audio.startMusic(); }, { once: true, capture: true });
+window.addEventListener('keydown', () => { audio.unlock(); audio.startMusic(); }, { once: true, capture: true });
+
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pause();
 });
@@ -447,14 +476,15 @@ window.addEventListener('resize', () => renderer.resize());
 
 // ---------- loop ----------
 let last = performance.now();
-function tick(dt) {
+function tick(realDt) {
+  const dt = realDt * fx.timeScale();
   if (S.mode !== 'paused') S.t += dt;
   S.squash *= Math.max(0, 1 - dt * 8);
   S.launchKick = Math.max(0, S.launchKick - dt * 3);
   if (S.farmerCheer < 0) S.farmerCheer = Math.min(0, S.farmerCheer + dt * 0.6);
 
   if (S.mode === 'ready') {
-    if (!S.adBusy) S.meterT += dt;
+    if (!S.adBusy) S.meterT += realDt;
     const v = needleAt(S.meterT, meterPeriod(save.flights));
     ui.needle(v);
     S.pull = 0.2 + v * 0.8;
