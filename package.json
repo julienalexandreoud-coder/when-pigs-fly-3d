@@ -1,0 +1,11 @@
+{
+  "name": "when-pigs-fly",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "node tools/serve.mjs 8770",
+    "test": "node --test tests/*.test.mjs",
+    "balance": "node tools/balance-sim.mjs skilled 120 1 && node tools/balance-sim.mjs novice 160 2",
+    "pack": "powershell -ExecutionPolicy Bypass -File tools/pack.ps1"
+  }
+}

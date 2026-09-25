@@ -1,0 +1,204 @@
+// What happens when the pig touches sky objects and ground features.
+// Mutates the flight state `f` (the simulation's single mutable record).
+
+import { LAYERS, layerIndexAt, scaleAt, PIG_R, clamp } from './config.js';
+
+const SPEED_KEEP = { goose: 0.75, thunder: 0.7, satellite: 0.75, asteroid: 0.75, plane: 0.7 };
+const FIELD_LIMIT = { updraft: 1.6, jetstream: 3 };
+const TWO_PI = Math.PI * 2;
+
+export function emit(f, type, data = {}) {
+  if (!f.quiet) f.events.push({ type, ...data });
+}
+
+export function setFace(f, face, t) {
+  f.face = face;
+  f.faceT = t;
+}
+
+const objScale = (o) => LAYERS[layerIndexAt(o.y)].scale;
+
+function scaleSpeed(f, k) {
+  f.vx *= k;
+  f.vy *= k;
+}
+
+function reflect(f, nx, ny, restitution) {
+  const vn = f.vx * nx + f.vy * ny;
+  if (vn >= 0) return;
+  f.vx -= (1 + restitution) * vn * nx;
+  f.vy -= (1 + restitution) * vn * ny;
+}
+
+function hitHazard(f, o, nx, ny) {
+  f.taken.add(o.id);
+  if (f.hitCd > 0) return;
+  scaleSpeed(f, SPEED_KEEP[o.type] || 0.75);
+  if (o.type === 'satellite' || o.type === 'asteroid') reflect(f, nx, ny, 0.4);
+  if (o.type === 'thunder') f.spinV = (Math.floor(f.t * 7) % 2 ? -1 : 1) * 9;
+  if (o.type === 'goose' || o.type === 'plane') f.vy -= 4;
+  f.dizzy = o.type === 'thunder' ? 1.5 : 1.1;
+  f.hitCd = 0.6;
+  f.hazards += 1;
+  setFace(f, 'dizzy', 1.4);
+  emit(f, 'hit', { kind: o.type, x: f.x, y: f.y });
+}
+
+function popBalloon(f, o) {
+  f.taken.add(o.id);
+  f.vy = Math.max(f.vy, 0) + (o.type === 'wballoon' ? 28 : 13);
+  f.balloons += 1;
+  f.chainN = f.t - f.chainT < 3 ? f.chainN + 1 : 1;
+  f.chainT = f.t;
+  if (f.chainN >= 3) f.chainBonus += 5;
+  setFace(f, 'happy', 0.7);
+  emit(f, 'pop', { x: o.x, y: o.y, color: o.color || '#ffffff', chain: f.chainN, big: o.type === 'wballoon' });
+}
+
+function fieldPush(f, o, dt) {
+  const used = f.fieldTime.get(o.id) || 0;
+  if (used >= FIELD_LIMIT[o.type]) return;
+  f.fieldTime.set(o.id, used + dt);
+  if (used === 0) emit(f, 'wind', { kind: o.type, x: f.x, y: f.y });
+  if (o.type === 'updraft') f.vy += o.power * dt;
+  else f.vx += o.power * dt;
+}
+
+function surfPlane(f, o) {
+  f.taken.add(o.id);
+  f.vy = Math.abs(f.vy) * 0.4 + 22;
+  f.vx += 14;
+  f.surfs += 1;
+  setFace(f, 'happy', 1);
+  emit(f, 'surf', { x: f.x, y: f.y });
+}
+
+function startAbduction(f, o) {
+  f.taken.add(o.id);
+  f.abductions += 1;
+  f.abduct = { t: 0, dur: 1.9, x0: f.x, y0: f.y, x1: o.x, y1: f.y + 450, ufo: o };
+  setFace(f, 'scared', 2);
+  emit(f, 'abduct', { x: o.x, y: o.y });
+}
+
+export function collideSky(f, world, dt, scratch) {
+  const pr = PIG_R * scaleAt(f.y);
+  const reach = 30 * scaleAt(f.y) + f.stats.magnet * 5;
+  scratch.length = 0;
+  const objs = world.query(f.x - reach, f.y - reach, f.x + reach, f.y + reach, scratch);
+  for (let i = 0; i < objs.length; i++) {
+    const o = objs[i];
+    if (o.type === 'updraft' || o.type === 'jetstream') {
+      if (f.x >= o.x0 && f.x <= o.x1 && f.y >= o.y0 && f.y <= o.y1) fieldPush(f, o, dt);
+      continue;
+    }
+    if (f.taken.has(o.id)) continue;
+    const dx = f.x - o.x;
+    const dy = f.y - o.y;
+    if (o.type === 'plane') {
+      if (Math.abs(dx) < o.w / 2 + pr && Math.abs(dy) < o.h / 2 + pr) {
+        if (dy > o.h * 0.15) surfPlane(f, o);
+        else hitHazard(f, o, 0, -1);
+      }
+      continue;
+    }
+    if (o.type === 'ufo') {
+      if (Math.abs(dx) < o.r * 1.3 && dy < 0 && dy > -o.beam) startAbduction(f, o);
+      continue;
+    }
+    const d = Math.hypot(dx, dy) || 1e-6;
+    const S = objScale(o);
+    if (o.type === 'coin') {
+      if (d < o.r + pr + f.stats.magnet * S) {
+        f.taken.add(o.id);
+        f.coins += o.value;
+        f.coinStreakT = f.t;
+        setFace(f, 'happy', 0.4);
+        emit(f, 'coin', { x: o.x, y: o.y, value: o.value, star: o.star });
+      }
+    } else if (o.type === 'fuel') {
+      if (d < o.r + pr + 0.6 * S) {
+        f.taken.add(o.id);
+        if (f.fuelMax > 0) {
+          f.fuel = Math.min(f.fuelMax, f.fuel + f.fuelMax * 0.4);
+          f.fuelCans += 1;
+          emit(f, 'fuel', { x: o.x, y: o.y });
+        } else {
+          f.coins += 3;
+          emit(f, 'coin', { x: o.x, y: o.y, value: 3 });
+        }
+      }
+    } else if (o.type === 'balloon' || o.type === 'wballoon') {
+      if (d < o.r + pr) popBalloon(f, o);
+    } else if (o.type === 'hotair') {
+      if (d < o.r + pr) {
+        f.taken.add(o.id);
+        reflect(f, dx / d, dy / d, 0.9);
+        f.vy += 10;
+        f.bounces += 1;
+        emit(f, 'boing', { x: f.x, y: f.y });
+      }
+    } else if (d < o.r + pr) {
+      hitHazard(f, o, dx / d, dy / d);
+    }
+  }
+}
+
+// Haystacks and trampolines near the pig. Returns true if it bounced.
+export function collideGroundFeatures(f, terrain) {
+  if (f.y > 40) return false;
+  const pr = PIG_R;
+  for (const seg of terrain.segments(f.x - 8, f.x + 8)) {
+    const ft = seg.feature;
+    if (!ft || f.featureCd.get(seg.i) > f.t) continue;
+    if (ft.type === 'haystack') {
+      const hy = terrain.height(ft.x) + 1.3;
+      const dx = f.x - ft.x;
+      const dy = f.y - hy;
+      const d = Math.hypot(dx, dy) || 1e-6;
+      if (d < ft.r + pr) {
+        reflect(f, dx / d, dy / d, 0.75);
+        f.vy = Math.max(f.vy, 8);
+        return bounced(f, seg, 'hay');
+      }
+    } else if (ft.type === 'trampoline') {
+      const top = terrain.height(ft.x) + 1.4;
+      if (Math.abs(f.x - ft.x) < ft.w / 2 && f.y - pr < top && f.y > top - 2.5 && f.vy <= 0.5) {
+        f.vy = Math.max(-f.vy * 1.05, 16);
+        f.vx = Math.max(f.vx, 8);
+        f.y = top + pr;
+        return bounced(f, seg, 'boing');
+      }
+    }
+  }
+  return false;
+}
+
+function bounced(f, seg, kind) {
+  f.featureCd.set(seg.i, f.t + 0.5);
+  f.grounded = false;
+  f.bounces += 1;
+  f.rotAcc = 0;
+  setFace(f, 'happy', 0.8);
+  emit(f, kind, { x: f.x, y: f.y });
+  return true;
+}
+
+export function stepAbduction(f, dt) {
+  const a = f.abduct;
+  a.t += dt;
+  const k = clamp(a.t / a.dur, 0, 1);
+  const ease = k * k * (3 - 2 * k);
+  f.x = a.x0 + (a.x1 - a.x0) * Math.min(1, k * 3);
+  f.y = a.y0 + (a.y1 - a.y0) * ease;
+  f.angle += dt * TWO_PI * 0.8;
+  if (k >= 1) {
+    f.abduct = null;
+    f.vx = Math.max(f.vx, 30);
+    f.vy = 12;
+    f.angle = 0.3;
+    f.rotAcc = 0;
+    setFace(f, 'happy', 1);
+    emit(f, 'dropped', { x: f.x, y: f.y });
+  }
+}

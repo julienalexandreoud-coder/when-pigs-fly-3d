@@ -1,0 +1,161 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>When Pigs Fly cover</title>
+<style>html,body{margin:0;overflow:hidden;background:#000}canvas{display:block}</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+// Renders store covers with the game's own art. ?w=1920&h=1080
+import { drawPig } from '../js/art/pig.js';
+import { drawLauncher, drawFarmer, drawBarn, drawTree } from '../js/art/farm.js';
+import { drawObject } from '../js/art/objects.js';
+import { skinById } from '../js/upgrades.js';
+
+const q = new URLSearchParams(location.search);
+const W = Number(q.get('w') || 1920);
+const H = Number(q.get('h') || 1080);
+const c = document.getElementById('c');
+c.width = W;
+c.height = H;
+const g = c.getContext('2d');
+const portrait = H > W * 1.2;
+const u = Math.min(W, H) / 100; // layout unit
+
+// sky
+const sky = g.createLinearGradient(0, 0, 0, H);
+sky.addColorStop(0, '#2f7fe6');
+sky.addColorStop(0.6, '#7cc8ff');
+sky.addColorStop(1, '#dff4ff');
+g.fillStyle = sky;
+g.fillRect(0, 0, W, H);
+
+// CrazyGames overlays labels on the top-left ~40% x 20% of every cover, so nothing
+// important goes there: the title sits top-right (landscape) or at the bottom
+// (portrait / square), like the Rootbound covers.
+const wide = W > H * 1.2;
+const L = wide
+  ? { moon: [0.79, 0.24, 21], pig: [0.42, 0.56, 12], hillY: 0.95, m: 2.6, farmX: [0.03, 0.14, 0.2, 0.26] }
+  : portrait
+    ? { moon: [0.74, 0.17, 17], pig: [0.48, 0.44, 14], hillY: 0.8, m: 3.2, farmX: [0.06, 0.26, 0.36, 0.44] }
+    : { moon: [0.76, 0.2, 18], pig: [0.46, 0.42, 13], hillY: 0.78, m: 3, farmX: [0.06, 0.24, 0.33, 0.41] };
+
+// moon
+const mx = W * L.moon[0];
+const my = H * L.moon[1];
+const mr = u * L.moon[2];
+const glow = g.createRadialGradient(mx, my, mr * 0.9, mx, my, mr * 1.8);
+glow.addColorStop(0, 'rgba(255,250,220,0.55)');
+glow.addColorStop(1, 'rgba(255,250,220,0)');
+g.fillStyle = glow;
+g.beginPath(); g.arc(mx, my, mr * 1.8, 0, Math.PI * 2); g.fill();
+const mb = g.createRadialGradient(mx - mr * 0.3, my - mr * 0.3, mr * 0.1, mx, my, mr);
+mb.addColorStop(0, '#fffbe9');
+mb.addColorStop(1, '#d9d2b8');
+g.fillStyle = mb;
+g.beginPath(); g.arc(mx, my, mr, 0, Math.PI * 2); g.fill();
+g.fillStyle = 'rgba(160,150,120,0.35)';
+for (const [cx, cy, cr] of [[-0.35, -0.2, 0.18], [0.25, 0.1, 0.24], [-0.1, 0.45, 0.12], [0.45, -0.4, 0.1]]) {
+  g.beginPath(); g.arc(mx + cx * mr, my + cy * mr, cr * mr, 0, Math.PI * 2); g.fill();
+}
+
+// clouds
+function cloud(x, y, r) {
+  const puffs = [[-0.6, 0.2, 0.6], [0.6, 0.2, 0.62], [0, -0.15, 0.8], [-0.25, 0.35, 0.55], [0.3, 0.36, 0.55]];
+  g.fillStyle = 'rgba(190,205,235,0.9)';
+  for (const [dx, dy, k] of puffs) { g.beginPath(); g.arc(x + dx * r, y + dy * r + r * 0.08, k * r, 0, Math.PI * 2); g.fill(); }
+  g.fillStyle = '#ffffff';
+  for (const [dx, dy, k] of puffs) { g.beginPath(); g.arc(x + dx * r, y + dy * r, k * r, 0, Math.PI * 2); g.fill(); }
+}
+cloud(W * 0.1, H * (wide ? 0.62 : 0.3), u * 8);
+cloud(W * (wide ? 0.6 : 0.2), H * (wide ? 0.82 : 0.62), u * 7);
+cloud(W * 0.95, H * (wide ? 0.56 : 0.5), u * 8);
+
+// hill + farm (world metres scaled by m px)
+const m = u * L.m;
+const groundY = H * L.hillY;
+const hillPath = () => {
+  g.beginPath();
+  g.moveTo(0, groundY - 8 * m);
+  g.bezierCurveTo(W * 0.35, groundY - 9 * m, W * 0.5, groundY, W * 0.75, groundY + m);
+  g.lineTo(W, groundY + m);
+};
+hillPath(); g.lineTo(W, H); g.lineTo(0, H); g.closePath();
+g.fillStyle = '#7cc242'; g.fill();
+hillPath(); g.strokeStyle = '#4c9a2a'; g.lineWidth = m * 0.4; g.stroke();
+const site = (x, fn) => { g.save(); g.translate(x, groundY - 8.4 * m); g.scale(m, m); fn(); g.restore(); };
+site(W * L.farmX[0], () => drawBarn(g));
+site(W * L.farmX[1], () => drawTree(g, 0.9));
+site(W * L.farmX[2], () => drawFarmer(g, 0.2, -1));
+site(W * L.farmX[3], () => drawLauncher(g, 4, 0.1, 0.4, () => {}));
+
+// coin arc + balloons (drawn as world objects in a pixel frame)
+const obj = (o) => { g.save(); g.translate(o.x, o.y); g.scale(m, m); drawObject(g, { ...o, x: 0, y: 0 }, 0.7, { hasRocket: true }); g.restore(); };
+const pigX = W * L.pig[0];
+const pigY = H * L.pig[1];
+for (let i = 0; i < 6; i++) {
+  const t = i / 5;
+  obj({ type: 'coin', x: pigX + u * (14 + t * (wide ? 26 : 22)), y: pigY - u * (6 + t * 10 - t * t * 4), r: 1.1, value: 1, id: `c${i}` });
+}
+obj({ type: 'balloon', x: pigX - u * 22, y: pigY - u * 6, r: 2.2, color: '#ff4d6d', id: 'b1' });
+obj({ type: 'balloon', x: pigX - u * 12, y: pigY - u * 16, r: 2.0, color: '#3a86ff', id: 'b2' });
+obj({ type: 'balloon', x: pigX + u * 30, y: pigY + u * 20, r: 2.1, color: '#ffb703', id: 'b3' });
+
+// smoke trail
+g.fillStyle = 'rgba(255,255,255,0.75)';
+for (let i = 1; i < 9; i++) {
+  g.beginPath();
+  g.arc(pigX - i * u * 3.2, pigY + i * u * 2.3, u * (1.2 + i * 0.35), 0, Math.PI * 2);
+  g.fill();
+}
+
+// the star of the show
+const pu = u * L.pig[2];
+g.save();
+g.translate(pigX, pigY);
+g.rotate(-0.6);
+g.scale(pu, pu);
+drawPig(g, { skin: skinById('pink'), tiers: { wings: 3, rocket: 5, helmet: 2 }, face: 'determined', boosting: true, t: 0.5, unit: pu });
+g.restore();
+
+// title
+function titleWords(words, cx, y, size) {
+  g.font = `900 ${size}px "Trebuchet MS", "Arial Rounded MT Bold", system-ui, sans-serif`;
+  g.textAlign = 'left';
+  g.textBaseline = 'middle';
+  g.lineJoin = 'round';
+  const total = words.reduce((sum, [w]) => sum + g.measureText(w).width, 0);
+  let x = cx - total / 2;
+  for (const [w, fill] of words) {
+    g.lineWidth = size * 0.16;
+    g.strokeStyle = '#3a2230';
+    g.fillStyle = 'rgba(0,0,0,0.25)';
+    g.fillText(w, x, y + size * 0.1);
+    g.strokeText(w, x, y);
+    g.fillStyle = fill;
+    g.fillText(w, x, y);
+    x += g.measureText(w).width;
+  }
+}
+if (!q.has('notitle')) {
+  if (wide) {
+    const size = H * 0.13;
+    titleWords([['When ', '#ffffff'], ['Pigs', '#ff7aa2']], W * 0.78, H * 0.16, size);
+    titleWords([['Fly!', '#ffd23f']], W * 0.78, H * 0.35, size * 1.35);
+  } else {
+    const band = g.createLinearGradient(0, H * 0.7, 0, H);
+    band.addColorStop(0, 'rgba(30,15,30,0)');
+    band.addColorStop(1, 'rgba(30,15,30,0.75)');
+    g.fillStyle = band;
+    g.fillRect(0, H * 0.7, W, H * 0.3);
+    const size = W * (portrait ? 0.15 : 0.13);
+    const y = H * (portrait ? 0.86 : 0.84);
+    titleWords([['When ', '#ffffff'], ['Pigs ', '#ff7aa2'], ['Fly', '#ffd23f']], W / 2, y, Math.min(size, (W * 0.92) / 7.6));
+  }
+}
+document.title = 'ready';
+</script>
+</body>
+</html>
