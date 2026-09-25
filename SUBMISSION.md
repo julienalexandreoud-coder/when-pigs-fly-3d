@@ -1,19 +1,19 @@
 # When Pigs Fly: CrazyGames submission kit
 
-Upload: `dist/when-pigs-fly-crazygames.zip` (built with `npm run pack`; `index.html` at the root, HTML5, no external assets)
+Upload: `dist/when-pigs-fly-crazygames.zip` (built with `npm run pack`; `index.html` at the root, HTML5 + Three.js r170 bundled in `vendor/`, fonts bundled in `fonts/`, no external assets besides the CrazyGames SDK)
 Covers: `covers/cover-landscape-1920x1080.png`, `covers/cover-portrait-800x1200.png`, `covers/cover-square-800x800.png`
 
 ## Listing
 - **Title:** When Pigs Fly
-- **Category:** Casual (tags: launch, upgrade, flying, physics, idle-friendly, funny, animals, mobile)
-- **Short description:** Launch Pip the pig, upgrade your gear and fly all the way to the Moon!
+- **Category:** Casual (tags: 3d, launch, upgrade, flying, physics, funny, animals, brainrot, mobile)
+- **Short description:** Yeet Pip the pig to the Moon! Launch, upgrade your gear and fly through a 3D sky full of chaos.
 - **Description:**
-  The farmer laughed: "I'll believe it when pigs fly... to the Moon!" Time to prove him wrong. Launch Pip from a slingshot, time
-  your shot for a PERFECT launch, then steer, glide and boost through six sky layers: the Farm, Blue Sky, Cloud Kingdom, the Jet
-  Lane, the Stratosphere and Outer Space. Pop balloons, surf on airplanes, catch updrafts and jet streams, dodge geese,
-  thunderclouds, satellites and asteroids, and maybe get abducted by a UFO. Every flight earns coins for the Barn: 8 upgrade lines
-  (launchers from slingshot to railgun, wings, rockets, fuel tanks, helmets, a bouncy belly, a coin magnet and a piggy bank), each
-  tier changing how Pip looks. Complete missions, earn 15 medals, unlock 8 pig skins, and reach the Moon to unlock the Golden Pig.
+  The farmer said pigs can't fly. Time to prove him wrong. Launch Pip from a slingshot (or a catapult, a circus cannon, a tractor
+  ramp... all the way up to a railgun), hit the PERFECT zone, then steer, glide and boost through six 3D sky layers: the Farm,
+  Blue Sky, Cloud Kingdom, the Jet Lane, the Stratosphere and Outer Space. Pop balloons, surf on airliners, ride updrafts and jet
+  streams, dodge geese, thunderclouds, satellites and asteroids, get abducted by a UFO, and try not to fall apart when you crash.
+  Every flight earns coins for the Oink Shop: 8 upgrade lines that change how Pip looks, 8 pig skins, side quests, 15 medals and
+  a phonk soundtrack. Hit 67 m for a surprise. Reach the Moon to unlock the golden pig.
 - **Controls:**
   - Keyboard: ↑ / W to lift the nose, ↓ / S to dive, SPACE to boost (and to launch), Esc / P to pause.
   - Mouse / touch: tap to launch. In flight, hold the top half of the screen to lift the nose and the bottom half to dive. Once
@@ -43,4 +43,4 @@ Covers: `covers/cover-landscape-1920x1080.png`, `covers/cover-portrait-800x1200.
 - `npm run serve` then open http://localhost:8770 (`?debug` exposes `window.wpf`; add `&sandbox` for a memory-only save)
 - `npm test` runs the unit tests (physics, world, economy, save, missions, launch meter)
 - `npm run balance` runs the balance bot for a skilled and a novice player
-- Covers: open `tools/cover.html?w=1920&h=1080` (also 800×1200 and 800×800) or render them headless, see README
+- Covers: open `tools/cover3d.html?w=1920&h=1080` (also 800×1200 and 800×800) or render them headless, see README

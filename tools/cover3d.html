@@ -1,0 +1,148 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>When Pigs Fly 3D cover</title>
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script>
+<style>
+  @font-face { font-family: 'Bangers'; src: url('../fonts/bangers.woff2') format('woff2'); }
+  html, body { margin: 0; overflow: hidden; background: #000; }
+  canvas { display: block; }
+  /* CrazyGames covers its top-left corner with labels: title goes top-right
+     (landscape) or in a bottom band (portrait / square). */
+  .title { position: fixed; font-family: 'Bangers', Impact, sans-serif; color: #fff; line-height: 0.9; letter-spacing: 2px;
+    -webkit-text-stroke: calc(var(--u) * 1.1) #141014; paint-order: stroke fill; text-shadow: calc(var(--u) * 0.9) calc(var(--u) * 1.2) 0 #141014; }
+  .title span { display: inline-block; }
+  .title .a { transform: rotate(-6deg); }
+  .title .b { color: #ff2e88; transform: rotate(3deg); }
+  .title .c { color: #b8ff2e; transform: rotate(-4deg) translateY(calc(var(--u) * -1)); }
+  .wide .title { right: 3.5%; top: 6%; text-align: right; font-size: calc(var(--u) * 15); }
+  .tall .title { left: 0; right: 0; bottom: 5%; text-align: center; font-size: calc(var(--u) * 17); }
+  .square .title { font-size: calc(var(--u) * 12.5); bottom: 4%; }
+  .tall .band { position: fixed; left: 0; right: 0; bottom: 0; height: 34%; background: linear-gradient(transparent, rgba(20,16,20,0.55)); }
+  .tag { display: inline-block; margin-top: calc(var(--u) * 1.5); font-size: calc(var(--u) * 4.2); background: #141014; color: #b8ff2e; padding: calc(var(--u) * 0.6) calc(var(--u) * 2);
+    -webkit-text-stroke: 0; text-shadow: none; transform: rotate(-2deg); box-shadow: calc(var(--u) * 0.6) calc(var(--u) * 0.6) 0 #ff2e88; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="band"></div>
+<div class="title"><span class="a">WHEN</span> <span class="b">PIGS</span><br><span class="c">FLY</span><br><span class="tag">YEET THE PIG TO THE MOON</span></div>
+<script type="module">
+import { THREE, glow } from '../js/three/kit.js';
+import { createSky } from '../js/three/sky3d.js';
+import { createGround } from '../js/three/ground3d.js';
+import { createFarm } from '../js/three/farm3d.js';
+import { createObjects } from '../js/three/objects3d.js';
+import { createPig } from '../js/three/pig3d.js';
+import { createWorld } from '../js/world.js';
+import { skinById } from '../js/upgrades.js';
+
+const q = new URLSearchParams(location.search);
+const W = Number(q.get('w') || 1920);
+const H = Number(q.get('h') || 1080);
+const wide = W > H * 1.2;
+document.body.className = wide ? 'wide' : H < W * 1.2 ? 'tall square' : 'tall';
+document.body.style.setProperty('--u', `${Math.min(W, H) / 100}px`);
+
+const canvas = document.getElementById('c');
+const gl = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+gl.setPixelRatio(1);
+gl.setSize(W, H, false);
+canvas.style.width = `${W}px`;
+canvas.style.height = `${H}px`;
+gl.shadowMap.enabled = true;
+gl.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog('#dff4ff', 400, 2600);
+const camera = new THREE.PerspectiveCamera(wide ? 38 : 50, W / H, 0.5, 30000);
+scene.add(new THREE.HemisphereLight('#e3f2ff', '#7a9a5a', 1.5));
+const sun = new THREE.DirectionalLight('#fff3dc', 2.4);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -90, right: 90, top: 90, bottom: -90, near: 10, far: 900 });
+sun.shadow.camera.updateProjectionMatrix();
+scene.add(sun, sun.target);
+
+const world = createWorld(20260925);
+const sky = createSky(scene);
+const ground = createGround(scene);
+const farm = createFarm(scene);
+const objects = createObjects(scene);
+const pig = createPig();
+scene.add(pig.root);
+
+// Low camera looking up at the pig; everything else is placed in screen space
+// (normalized device coords) so each cover size keeps the same composition.
+const L = wide
+  ? { pig: [-0.22, -0.2], pigDist: 34, moon: [0.5, -0.05], trailTo: [-1.1, -1.0] }
+  : { pig: [0.0, 0.18], pigDist: 38, moon: [0.45, 0.62], trailTo: [-0.9, -0.55] };
+camera.position.set(0, 40, 0);
+camera.lookAt(30, 52, -60);
+camera.updateMatrixWorld();
+const at = (nx, ny, dist) => {
+  const v = new THREE.Vector3(nx, ny, 0.5).unproject(camera).sub(camera.position).normalize();
+  return camera.position.clone().addScaledVector(v, dist);
+};
+sun.target.position.copy(at(0, 0, 60));
+sun.position.copy(sun.target.position).add(new THREE.Vector3(-40, 160, 120));
+
+for (let i = 0; i < 6; i++) ground.update(world.terrain, -120, 420, true);
+farm.update({ tier: 4, pull: 0.1, t: 0.4, cheer: -1, visible: true });
+sky.update(camera.position, 60, 160, 90, scene.fog);
+sky.moon.visible = false;
+
+const pigPos = at(L.pig[0], L.pig[1], L.pigDist);
+pig.root.position.copy(pigPos);
+pig.root.lookAt(camera.position);
+pig.root.rotateY(-Math.PI / 2 - 0.55);
+pig.root.rotateZ(0.5);
+pig.root.scale.setScalar(2.6);
+pig.update({ skin: skinById('pink'), tiers: { wings: 6, rocket: 5, helmet: 2 }, face: 'determined', boosting: true, t: 0.3, squash: 0, flap: 0.4 });
+
+// Exhaust trail sweeping in from the bottom-left.
+const tail = at(L.trailTo[0], L.trailTo[1], L.pigDist * 1.3);
+for (let i = 1; i < 30; i++) {
+  const k = i / 30;
+  const p = pigPos.clone().lerp(tail, k);
+  p.y -= Math.sin(k * Math.PI) * 3;
+  const puff = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshToonMaterial({ color: i < 3 ? '#ffd166' : '#ffffff', transparent: true, opacity: 1 - k * 0.6 }));
+  puff.position.copy(p);
+  puff.scale.setScalar(0.6 + k * 2.2);
+  scene.add(puff);
+}
+
+// Coins arcing ahead, balloons and geese scattered in screen space.
+const objs = [];
+const put = (id, type, nx, ny, dist, extra) => { const p = at(nx, ny, dist); objs.push({ id, type, x: p.x, y: p.y, ...extra, z: p.z }); };
+for (let i = 0; i < 8; i++) put(`c${i}`, 'coin', L.pig[0] + 0.18 + i * 0.075, L.pig[1] + 0.1 + Math.sin(i * 0.45) * 0.12, L.pigDist + i * 1.5, { r: 1.1, value: 1 });
+[['#ff4d6d', -0.72, 0.5, 70], ['#ffb703', 0.82, -0.45, 55], ['#3a86ff', 0.7, -0.62, 62], ['#06d6a0', 0.1, -0.7, 48]].forEach(([color, nx, ny, d], i) => put(`b${i}`, 'balloon', nx, ny, d, { r: 2.6, color }));
+for (let i = 0; i < 5; i++) put(`g${i}`, 'goose', -0.05 + Math.ceil(i / 2) * 0.05, 0.62 + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.04, 90, { r: 1.6, phase: i });
+objects.update(objs, 0.7, { taken: null, hasRocket: true, carrying: null });
+scene.traverse((o) => { if (o.userData && o.userData.type && objs.length) { const src = objs.find((x) => Math.abs(x.x - o.position.x) < 0.01 && Math.abs(x.y - o.position.y) < 3); if (src) o.position.z = src.z; } });
+
+// Big glowing Moon: the goal.
+const moonPos = at(L.moon[0], L.moon[1], 900);
+const moon = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 4), new THREE.MeshBasicMaterial({ color: '#f3eedd', fog: false }));
+moon.position.copy(moonPos);
+moon.scale.setScalar(wide ? 120 : 110);
+moon.lookAt(camera.position);
+scene.add(moon);
+for (const [dx, dy, r] of [[-0.3, 0.25, 0.22], [0.25, -0.1, 0.3], [-0.1, -0.45, 0.16], [0.4, 0.4, 0.12]]) {
+  const cr = new THREE.Mesh(new THREE.CircleGeometry(1, 24), new THREE.MeshBasicMaterial({ color: '#d9d2be', fog: false }));
+  cr.position.set(dx, dy, 1.01);
+  cr.scale.setScalar(r);
+  moon.add(cr);
+}
+const halo = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), glow('#fff8d0', 0.22, true));
+halo.position.copy(moonPos);
+halo.scale.setScalar(moon.scale.x * 1.3);
+scene.add(halo);
+
+await document.fonts.ready;
+gl.render(scene, camera);
+document.title = 'ready';
+</script>
+</body>
+</html>

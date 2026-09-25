@@ -9,6 +9,8 @@ New-Item -ItemType Directory -Force $stage | Out-Null
 Copy-Item (Join-Path $root 'index.html') $stage
 Copy-Item -Recurse (Join-Path $root 'css') $stage
 Copy-Item -Recurse (Join-Path $root 'js') $stage
+Copy-Item -Recurse (Join-Path $root 'vendor') $stage
+Copy-Item -Recurse (Join-Path $root 'fonts') $stage
 
 if (Test-Path $zip) { Remove-Item -Force $zip }
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip

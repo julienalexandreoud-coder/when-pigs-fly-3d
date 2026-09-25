@@ -13,9 +13,9 @@ npm run balance  # balance bot: skilled + novice runs to the Moon
 npm run pack     # dist/when-pigs-fly-crazygames.zip for the CrazyGames upload
 ```
 
-Covers are rendered from `tools/cover.html` with headless Edge, for example:
+Covers are rendered from `tools/cover3d.html` with headless Edge, for example:
 ```bash
-msedge --headless=new --hide-scrollbars --window-size=1920,1080 --screenshot=covers/cover-landscape-1920x1080.png "http://localhost:8770/tools/cover.html?w=1920&h=1080"
+msedge --headless=new --hide-scrollbars --window-size=1920,1080 --use-angle=d3d11 --virtual-time-budget=8000 --screenshot=covers/cover-landscape-1920x1080.png "http://localhost:8771/tools/cover3d.html?w=1920&h=1080"
 ```
 
 ## Layout
@@ -25,4 +25,4 @@ msedge --headless=new --hide-scrollbars --window-size=1920,1080 --screenshot=cov
 - Presentation: `js/render.js`, `js/camera.js`, `js/fx.js`, `js/juice.js`, `js/art/*` (pig, farm, sky objects, scenery, icons),
   `js/audio.js` (WebAudio synth), `js/ui.js` + `js/panels.js` (DOM screens), `js/input.js`
 - Glue: `js/main.js` (state machine and loop), `js/sdk.js` (CrazyGames SDK wrapper), `js/bot.js` (balance bot / autoplay)
-- Tools: `tools/balance-sim.mjs`, `tools/cover.html`, `tools/serve.mjs`, `tools/pack.ps1`
+- Tools: `tools/balance-sim.mjs`, `tools/cover3d.html`, `tools/serve.mjs`, `tools/pack.ps1`

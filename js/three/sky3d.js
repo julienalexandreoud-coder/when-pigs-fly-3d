@@ -200,7 +200,7 @@ export function createSky(scene) {
   }
 
   return {
-    top, bottom, sunDir,
+    top, bottom, sunDir, moon,
     // camPos: THREE.Vector3; alt: camera focus altitude; view: metres visible.
     update(camPos, alt, viewW, viewH, fog) {
       skyColors(alt, top, bottom);
