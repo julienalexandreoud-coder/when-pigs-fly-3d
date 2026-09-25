@@ -6,7 +6,7 @@ import { nextMedal, medalText, affordableCount } from './economy.js';
 import { createPanels } from './panels.js';
 
 const $ = (id) => document.getElementById(id);
-const SCREENS = ['ready', 'results', 'barn', 'records', 'pause', 'moonwin'];
+const SCREENS = ['ready', 'results', 'barn', 'records', 'pause', 'moonwin', 'daily'];
 
 export function createUI(handlers) {
   const el = {
@@ -38,6 +38,7 @@ export function createUI(handlers) {
   on('btn-resume', handlers.onResume);
   on('btn-quit', handlers.onQuit);
   on('btn-moon-ok', handlers.onMoonOk);
+  on('btn-daily', handlers.onDaily);
   // Buttons must not leak pointer events to the canvas (that would launch or steer).
   document.querySelectorAll('button').forEach((b) => b.addEventListener('pointerdown', (e) => e.stopPropagation()));
 
@@ -101,6 +102,13 @@ export function createUI(handlers) {
       el.readyBest.textContent = formatDistance(save.best.alt);
       el.readyCoins.textContent = formatInt(save.coins);
       const m = nextMedal(save.medals, 'alt');
+      const pct = Math.min(100, (save.best.alt / MOON_ALT) * 100);
+      $('mg-fill').style.width = `${pct}%`;
+      $('mg-pig').style.left = `${pct}%`;
+      $('mg-text').textContent = save.moon
+        ? 'You made it to the Moon! Now beat your records.'
+        : save.best.alt < 1 ? 'The Moon is 10 km up. Every flight earns coins for upgrades!'
+          : `Your best: ${formatDistance(save.best.alt)} of 10 km (${pct < 1 ? pct.toFixed(1) : Math.floor(pct)}% of the way)`;
       el.readyMedal.textContent = save.moon
         ? 'You reached the Moon! Go for records and medals.'
         : m ? `Next medal: ${m.name} (${medalText(m)}) +${formatInt(m.reward)}` : '';
@@ -142,6 +150,18 @@ export function createUI(handlers) {
         document.body.classList.add('six-on');
         sixTimer = setTimeout(() => { el6.classList.remove('show'); document.body.classList.remove('six-on'); }, 1900);
       }, wait);
+    },
+    // Daily chest modal: 7 cells, today's chest highlighted.
+    daily(st) {
+      const row = $('daily-row');
+      row.innerHTML = Array.from({ length: 7 }, (_, i) => {
+        const d = i + 1;
+        const cls = d < st.day ? 'done' : d === st.day ? 'today' : '';
+        return `<div class="d ${cls}"><span class="chest">${d < st.day ? '✅' : d === 7 ? '👑' : '🎁'}</span>Day<b>${d}</b></div>`;
+      }).join('');
+      $('daily-sub').textContent = st.day > 1 ? `${st.day} days in a row! Keep the streak going.` : 'Come back every day. Bigger chest each day in a row!';
+      $('daily-amt').textContent = `+${formatInt(st.reward)} coins`;
+      show('daily');
     },
     toast(html) {
       const t = document.createElement('div');

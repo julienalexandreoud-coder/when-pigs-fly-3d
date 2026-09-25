@@ -26,6 +26,12 @@ function sanitizeMissions(raw) {
   return { level: int(src.level, 1e6), seed: int(src.seed, 2 ** 31) || 1, active: unique };
 }
 
+function sanitizeDaily(raw) {
+  const d = raw && typeof raw === 'object' ? raw : {};
+  const last = typeof d.last === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.last) ? d.last : '';
+  return Object.freeze({ last, streak: last ? Math.min(int(d.streak, 99), 7) : 0 });
+}
+
 export function sanitize(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
   const rawUp = src.upgrades && typeof src.upgrades === 'object' ? src.upgrades : {};
@@ -52,6 +58,7 @@ export function sanitize(raw) {
     lastPayout: int(src.lastPayout),
     muted: src.muted === true,
     tips: Object.freeze(tips),
+    daily: sanitizeDaily(src.daily),
   };
   const missions = fillMissions(sanitizeMissions(src.missions), missionCtx(base));
   return Object.freeze({ ...base, missions });

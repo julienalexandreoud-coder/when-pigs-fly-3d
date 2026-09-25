@@ -4,6 +4,7 @@ import {
   DEFAULT_SAVE, sanitize, update, buyUpgrade, buySkin, recordFlight, addCoins, markTip, createStorage, SAVE_KEY,
 } from '../js/save.js';
 import { MOON_ALT } from '../js/config.js';
+import { UPGRADES } from '../js/upgrades.js';
 
 const summary = (o = {}) => ({
   distance: 100, maxAlt: 40, topSpeed: 20, coins: 10, flips: 0, balloons: 0, chainBonus: 0, surfs: 0, abductions: 0,
@@ -47,7 +48,7 @@ test('buying upgrades checks money, locks and max level', () => {
   const r = buyUpgrade(s, 'launcher');
   assert.ok(r.ok);
   assert.equal(r.save.upgrades.launcher, 1);
-  assert.equal(r.save.coins, 40);
+  assert.equal(r.save.coins, 60 - UPGRADES.find((u) => u.id === 'launcher').costs[0]);
   const maxed = update(DEFAULT_SAVE, { coins: 1e6, upgrades: { launcher: 7 } });
   assert.equal(buyUpgrade(maxed, 'launcher').reason, 'max');
 });

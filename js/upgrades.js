@@ -5,11 +5,11 @@ export const UPGRADES = Object.freeze([
   {
     id: 'launcher', name: 'Launcher', blurb: 'Launch speed',
     levels: [
-      { name: 'Slingshot', v: 16 }, { name: 'Big Slingshot', v: 21 }, { name: 'Catapult', v: 27 },
-      { name: 'Hay Cannon', v: 34 }, { name: 'Circus Cannon', v: 43 }, { name: 'Tractor Launcher', v: 54 },
+      { name: 'Slingshot', v: 18 }, { name: 'Big Slingshot', v: 26 }, { name: 'Catapult', v: 32 },
+      { name: 'Hay Cannon', v: 38 }, { name: 'Circus Cannon', v: 43 }, { name: 'Tractor Launcher', v: 54 },
       { name: 'Steam Cannon', v: 68 }, { name: 'Railgun', v: 86 },
     ],
-    costs: [20, 55, 220, 600, 1500, 3800, 10000],
+    costs: [15, 55, 220, 600, 1500, 3800, 10000],
   },
   {
     id: 'wings', name: 'Wings', blurb: 'Lift and glide',
@@ -24,11 +24,11 @@ export const UPGRADES = Object.freeze([
   {
     id: 'rocket', name: 'Rocket', blurb: 'Boost power',
     levels: [
-      { name: 'No Rocket', thrust: 0 }, { name: 'Soda Bottle', thrust: 16 }, { name: 'Firework', thrust: 24 },
+      { name: 'No Rocket', thrust: 0 }, { name: 'Soda Bottle', thrust: 20 }, { name: 'Firework', thrust: 24 },
       { name: 'Toy Rocket', thrust: 34 }, { name: 'Jet Engine', thrust: 46 }, { name: 'Space Rocket', thrust: 64 },
       { name: 'Warp Thruster', thrust: 90 },
     ],
-    costs: [45, 180, 750, 2100, 5400, 15000],
+    costs: [30, 180, 750, 2100, 5400, 15000],
   },
   {
     id: 'tank', name: 'Fuel Tank', blurb: 'Boost time', requires: 'rocket',

@@ -32,6 +32,7 @@
       <div class="coin-pill"><span class="coin-icon"></span><span id="hud-coins">0</span></div>
     </div>
     <div id="moonbar" class="moonbar" aria-hidden="true">
+      <div class="moon-label">MOON<small>10 KM</small></div>
       <div class="moon-cap"></div>
       <div class="track"><div id="moon-fill" class="fill"></div><div id="moon-best" class="best"></div><div id="moon-pig" class="pig"></div></div>
     </div>
@@ -60,6 +61,11 @@
       <div class="ready-stats">
         <div><small>Personal best</small><b id="ready-best">0 m</b></div>
         <div><small>Coins</small><b><span class="coin-icon"></span><span id="ready-coins">0</span></b></div>
+      </div>
+      <div class="moon-goal" id="moon-goal">
+        <span class="mg-label">🌕 GOAL: FLY PIP TO THE MOON</span>
+        <div class="mg-track"><div class="mg-fill" id="mg-fill"></div><div class="mg-pig" id="mg-pig"></div><div class="mg-moon"></div></div>
+        <span class="mg-text" id="mg-text">Best 0 m of 10 km</span>
       </div>
       <p class="goal-hint" id="ready-medal"></p>
     </div>
@@ -150,6 +156,16 @@
       <p>farmer said pigs can't fly. farmer was wrong.</p>
       <p class="unlock">You unlocked <b>Porchetta Dorata</b>, the golden pig!</p>
       <button id="btn-moon-ok" class="btn primary">Claim the loot</button>
+    </div>
+  </div>
+
+  <!-- Daily chest -->
+  <div id="daily" class="overlay modal hidden">
+    <div class="card daily-card">
+      <h2>DAILY CHEST</h2>
+      <p class="cause" id="daily-sub">Come back every day. Bigger chest each day in a row!</p>
+      <div class="daily-row" id="daily-row"></div>
+      <button id="btn-daily" class="btn primary">Open chest<small id="daily-amt"></small></button>
     </div>
   </div>
 

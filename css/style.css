@@ -209,6 +209,30 @@ body.muted .icon .wave { display: none; }
 
 body.six-on .hint { opacity: 0; }
 
+/* Moon goal strip on the launch screen */
+.moon-goal { display: inline-flex; flex-direction: column; align-items: stretch; gap: 3px; margin-top: 10px; width: min(92%, 420px);
+  background: rgba(20,16,20,0.78); border: 3px solid var(--ink); border-radius: 10px 16px 8px 14px; padding: 6px 12px 7px; box-shadow: 4px 4px 0 var(--hot); transform: rotate(-1deg); }
+.mg-label { font-family: var(--display); font-size: 21px; letter-spacing: 1px; color: var(--yel); text-align: left; }
+.mg-track { position: relative; height: 16px; border: 2.5px solid #fff; border-radius: 10px; background: rgba(255,255,255,0.15); overflow: visible; }
+.mg-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 8px; background: linear-gradient(90deg, var(--hot), var(--yel)); }
+.mg-pig { position: absolute; top: 50%; width: 20px; height: 16px; margin: -8px 0 0 -10px; left: 0; border-radius: 50% 46% 50% 44%; background: #ffb0c4; border: 2.5px solid var(--ink); }
+.mg-moon { position: absolute; right: -12px; top: 50%; width: 26px; height: 26px; margin-top: -13px; border-radius: 50%; background: radial-gradient(circle at 60% 40%, #fffbe9 0 30%, #e2dbc0 32%); border: 2.5px solid var(--ink); box-shadow: 0 0 12px #fff6b0; }
+.mg-text { font-size: 13px; color: #fff; text-align: left; }
+
+.moonbar .moon-label { font-family: var(--display); font-size: 20px; line-height: 0.9; color: var(--yel); -webkit-text-stroke: 1.5px var(--ink); paint-order: stroke fill; text-align: center; margin-bottom: 3px; }
+.moonbar .moon-label small { display: block; font-size: 13px; color: #fff; }
+
+/* Daily chest */
+.daily-card { text-align: center; }
+.daily-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 4px 0 6px; }
+.daily-row .d { border: 2.5px solid var(--ink); border-radius: 8px 12px 6px 10px; padding: 6px 2px 4px; background: #fff; font-size: 12px; line-height: 1.1; }
+.daily-row .d b { display: block; font-family: var(--display); font-size: 17px; font-weight: 400; letter-spacing: 1px; }
+.daily-row .d.done { background: var(--lime); opacity: 0.75; }
+.daily-row .d.today { background: var(--yel); transform: rotate(-4deg) scale(1.12); box-shadow: 3px 3px 0 var(--ink); animation: wobble 1s ease-in-out infinite; }
+.daily-row .d .chest { font-size: 20px; display: block; }
+#btn-daily { font-size: 26px; display: flex; flex-direction: column; align-items: center; }
+#btn-daily small { font-family: var(--font); font-size: 15px; letter-spacing: 0; }
+
 /* ---------- overlays ---------- */
 .overlay { position: fixed; inset: 0; z-index: 10; }
 .modal { display: grid; place-items: center; background: rgba(20,16,20,0.55); padding: 14px; }

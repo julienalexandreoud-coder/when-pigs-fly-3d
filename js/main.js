@@ -1,5 +1,5 @@
 // Boot, state machine and main loop.
-import { STEP, PIG_R, LAUNCH_ANGLE, scaleAt, formatInt } from './config.js';
+import { STEP, PIG_R, LAUNCH_ANGLE, MOON_ALT, scaleAt, formatInt, formatDistance } from './config.js';
 import { createWorld } from './world.js';
 import { SEG } from './terrain.js';
 import { createFlight, stepFlight, canSkip, simulateToEnd, rebound, summarize } from './physics.js';
@@ -11,6 +11,7 @@ import {
   DEFAULT_SAVE, createStorage, recordFlight, buyUpgrade, buySkin, addCoins, markTip, statsOf, update,
 } from './save.js';
 import { initSdk, Sdk } from './sdk.js';
+import { dailyStatus, claimDaily, dayKey } from './daily.js';
 import { createAudio } from './audio.js';
 import { createRenderer } from './render3d.js';
 import { createCamera, snapToReady, updateCamera } from './camera.js';
@@ -44,7 +45,7 @@ const S = {
   meterT: 0, pull: 0, launchKick: 0, farmerCheer: 0, trampT: new Map(), trail: [], trailT: 0,
   squash: 0, golden: false, banked: null, result: null, doubled: false, backTo: 'ready',
   prevBest: 0, recordShown: false, shownMissions: new Set(), hintUntil: 0, hintKind: null,
-  username: null, adBusy: false, autoplay: false, endTimer: 0, sixSeven: new Set(),
+  username: null, adBusy: false, autoplay: false, endTimer: 0, sixSeven: new Set(), modal: false,
 };
 
 // CrazyGames Basic Launch does not allow ads: keep this false until the game is
@@ -109,6 +110,28 @@ function newReady() {
   ui.ready(save, { golden: S.golden, goldenOffer: canAds() && hasRocket() && save.flights >= 2 });
   ui.tapText(save.flights === 0 ? 'Tap / SPACE in the green. dont be mid' : 'Tap / SPACE to YEET');
   input.setRocket(hasRocket());
+  maybeShowDaily();
+}
+
+// Daily chest: offered on the launch screen once per day, from the second visit on.
+function maybeShowDaily() {
+  if (save.flights < 1 || S.adBusy) return;
+  const st = dailyStatus(save, dayKey());
+  if (!st.available) return;
+  S.modal = true;
+  ui.daily(st);
+}
+
+function claimChest() {
+  const r = claimDaily(save, dayKey());
+  S.modal = false;
+  if (r.ok) {
+    persist(update(addCoins(save, r.coins), { daily: r.daily }));
+    audio.medal();
+    fx.burst(0, 30, 50, { colors: ['#ffd23f', '#ff7aa2', '#b8ff2e', '#26e0ff'], speed: 16, life: 1.4, size: 8, kind: 'confetti', gravity: 9 });
+    ui.toast(`<b>+${formatInt(r.coins)}</b> coins from the Day ${r.day} chest!`);
+  }
+  ui.ready(save, { golden: S.golden, goldenOffer: canAds() && hasRocket() && save.flights >= 2 });
 }
 
 function launch() {
@@ -147,6 +170,7 @@ function launch() {
   } else if (zone === 'weak') {
     ui.banner('MID LAUNCH', 'tap in the green', 900);
   }
+  if (save.flights === 0) setTimeout(() => ui.banner('FLY TO THE MOON!', 'your goal', 2200), 1300);
   if (!save.tips.includes('launch')) persist(markTip(save, 'launch'));
   Sdk.gameplayStart();
 }
@@ -295,6 +319,10 @@ function resultsView() {
     ...missions.map((m) => ({ kind: 'mission', text: `Quest cleared: ${missionText(m)} +${formatInt(m.reward)}` })),
   ];
   if (S.banked !== null) extras.unshift({ kind: 'medal', text: `Second wind earned +${formatInt(earned)}` });
+  const moonPct = Math.min(100, (save.best.alt / MOON_ALT) * 100);
+  if (!summary.moon) extras.push({ kind: 'mission', text: `🌕 Moon progress: ${moonPct < 1 ? moonPct.toFixed(1) : Math.floor(moonPct)}% (best ${formatDistance(save.best.alt)} of 10 km)` });
+  const chest = dailyStatus(save, dayKey());
+  if (!chest.available) extras.push({ kind: 'medal', text: `🎁 Come back tomorrow: Day ${chest.tomorrowDay} chest = +${formatInt(chest.tomorrow)} coins` });
   if (S.result.sixSeven) extras.unshift({ kind: 'mission', text: `🤲 6 7 bonus (payout had a 67) +67` });
   let title = 'not bad fr';
   if (summary.moon) title = 'TO THE MOON!';
@@ -449,12 +477,13 @@ const ui = createUI({
     flightOver();
   },
   onMoonOk() { audio.click(); showResults(); },
+  onDaily() { audio.click(); claimChest(); },
 });
 
 const input = createInput(canvas, {
   onAction(kind, code) {
     audio.unlock();
-    if (S.mode === 'ready' && !S.adBusy) {
+    if (S.mode === 'ready' && !S.adBusy && !S.modal) {
       if (kind === 'key' && code !== 'Space' && code !== 'Enter' && code !== 'ArrowUp' && code !== 'KeyW') return;
       launch();
     }
