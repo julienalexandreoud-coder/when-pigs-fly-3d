@@ -3,7 +3,7 @@
 // The simulation stays 2D (x right, y up); the flight plane is z = 0 and the
 // camera looks at it from a slight angle so the world has depth.
 
-import { THREE } from './three/kit.js';
+import { THREE, WORLD_TIME, addOutlines } from './three/kit.js';
 import { PIG_R, HILL, scaleAt, clamp, lerp, formatDistance } from './config.js';
 import { createSky } from './three/sky3d.js';
 import { createGround } from './three/ground3d.js';
@@ -12,12 +12,14 @@ import { createObjects } from './three/objects3d.js';
 import { createFx3d } from './three/fx3d.js';
 import { createPig } from './three/pig3d.js';
 import { createMoonScene } from './three/moon3d.js';
+import { GRASS_DENSITY } from './three/grass3d.js';
 
 const FOV = 42;
 const MIN_PIG_PX = 26;
 const YAW_READY = -0.22;
 const YAW_FLIGHT = 0.26;
 const TAN = Math.tan(((FOV / 2) * Math.PI) / 180);
+const OUTLINE_OK = (o) => !o.material.transparent && !(o.material.isMeshBasicMaterial) && !o.userData.noOutline;
 
 export function createRenderer(canvas) {
   const view = { W: 800, H: 600, dpr: 1 };
@@ -70,7 +72,7 @@ export function createRenderer(canvas) {
     view.dpr = Math.min(2, window.devicePixelRatio || 1);
     view.W = Math.max(1, r.width || window.innerWidth);
     view.H = Math.max(1, r.height || window.innerHeight);
-    gl.setPixelRatio(view.W * view.H > 1.6e6 ? Math.min(view.dpr, 1.5) : view.dpr);
+    gl.setPixelRatio(Math.min(view.dpr, view.W * view.H > 1.6e6 ? 1.5 : 2, LEVELS[perf.level].ratio));
     gl.setSize(view.W, view.H, false);
     overlay.width = Math.round(view.W * view.dpr);
     overlay.height = Math.round(view.H * view.dpr);
@@ -174,8 +176,46 @@ export function createRenderer(canvas) {
     s.fx.drawFlash(g, W, H);
   }
 
+  // ---------- adaptive quality ----------
+  const touch = matchMedia('(pointer: coarse)').matches;
+  const perf = { level: touch ? 1 : 0, ema: 16, slowFor: 0, lastNow: performance.now() };
+  const LEVELS = [
+    { ratio: 2, grass: 1, shadows: true },
+    { ratio: 1.25, grass: 0.6, shadows: true },
+    { ratio: 1, grass: 0.3, shadows: false },
+    { ratio: 0.8, grass: 0, shadows: false },
+  ];
+  function applyLevel() {
+    const L = LEVELS[perf.level];
+    gl.setPixelRatio(Math.min(view.dpr, L.ratio));
+    gl.setSize(view.W, view.H, false);
+    GRASS_DENSITY.value = L.grass;
+    scene.traverse((o) => { if (o.userData.grass) o.count = Math.floor(o.userData.full * L.grass); });
+    if (gl.shadowMap.enabled !== L.shadows) {
+      gl.shadowMap.enabled = L.shadows;
+      sunLight.castShadow = L.shadows;
+      scene.traverse((o) => { if (o.material && o.material.needsUpdate !== undefined) o.material.needsUpdate = true; });
+    }
+  }
+  function watchPerf() {
+    const now = performance.now();
+    const d = Math.min(200, now - perf.lastNow);
+    perf.lastNow = now;
+    if (document.hidden || d > 150) return;
+    perf.ema += (d - perf.ema) * 0.05;
+    perf.slowFor = perf.ema > 24 ? perf.slowFor + d : 0;
+    if (perf.slowFor > 2500 && perf.level < LEVELS.length - 1) {
+      perf.level += 1;
+      perf.slowFor = 0;
+      perf.ema = 16;
+      applyLevel();
+      console.info('[render] quality level', perf.level);
+    }
+  }
+
   let lastT = 0;
   function frame(s) {
+    watchPerf();
     const dt = clamp(s.t - lastT, 0, 0.1);
     lastT = s.t;
     if (s.mode === 'moon') {
@@ -187,6 +227,7 @@ export function createRenderer(canvas) {
       return;
     }
     if (pig.root.parent !== scene) scene.add(pig.root);
+    WORLD_TIME.value = s.t;
 
     const { viewW, viewH } = placeCamera(s, dt);
     placeLight(viewW, viewH);
@@ -233,6 +274,7 @@ export function createRenderer(canvas) {
       skin: s.skin, tiers: s.tiers, face: s.face, boosting: s.boosting, t: s.t, squash: s.squash,
       flap: s.mode === 'flying' ? 1 : 0.3,
     });
+    addOutlines(pig.root, OUTLINE_OK);
     // Crash ending: Pip bursts into cartoon pieces; any new flight (or a
     // Second Wind rebound) puts the pig back together.
     const crashed = f && !ready && f.done && !f.moon && f.cause !== 'quit';
@@ -256,6 +298,7 @@ export function createRenderer(canvas) {
   }
 
   resize();
+  applyLevel();
   // Compile every shader up front: first-use compiles caused mid-flight hitches.
   try {
     const done = objects.prewarm();

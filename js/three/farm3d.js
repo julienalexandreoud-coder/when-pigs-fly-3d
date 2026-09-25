@@ -1,7 +1,7 @@
 // Launch site: barn, silo, windmill, fences, the farmer, a sign and the
 // launcher (which changes model with the Launcher upgrade tier).
 
-import { THREE, Builder, G, mat, toon, vertexToon } from './kit.js';
+import { THREE, Builder, G, mat, toon, vertexToon, addOutlines } from './kit.js';
 import { HILL, LAUNCH_ANGLE } from '../config.js';
 
 const DIR = new THREE.Vector3(Math.cos(LAUNCH_ANGLE), Math.sin(LAUNCH_ANGLE), 0);
@@ -314,6 +314,7 @@ export function createFarm(scene) {
   const mill = windmill();
   scene.add(mill);
   const man = farmer();
+  addOutlines(man);
   scene.add(man);
   let launcher = null;
   let tierNow = -1;
@@ -324,7 +325,7 @@ export function createFarm(scene) {
     tierNow = tier;
     if (launcher) {
       grp.remove(launcher);
-      launcher.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+      launcher.traverse((o) => { if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose(); });
     }
     launcher = launcherFor(tier);
     launcher.traverse((o) => { o.castShadow = true; });

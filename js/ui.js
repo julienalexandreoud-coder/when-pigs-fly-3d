@@ -20,6 +20,8 @@ export function createUI(handlers) {
     adShade: $('ad-shade'), boot: $('boot'),
   };
   let bannerTimer = null;
+  let bannerUntil = 0;
+  let sixTimer = null;
   let lastCoins = -1;
   let lastHud = '';
 
@@ -123,17 +125,23 @@ export function createUI(handlers) {
       void el.banner.offsetWidth;
       el.banner.classList.add('show');
       clearTimeout(bannerTimer);
+      bannerUntil = performance.now() + ms;
       bannerTimer = setTimeout(() => el.banner.classList.remove('show'), ms);
     },
     // Big "6 7" callout with the two-hands weighing gesture.
+    // Waits for any banner to finish so callouts never stack; hides the hint meanwhile.
     sixSeven(what) {
+      const wait = Math.max(0, bannerUntil - performance.now());
       const el6 = document.getElementById('six-seven');
-      el6.querySelector('.what').textContent = what;
-      el6.classList.remove('show');
-      void el6.offsetWidth;
-      el6.classList.add('show');
-      clearTimeout(this.sixTimer);
-      this.sixTimer = setTimeout(() => el6.classList.remove('show'), 1900);
+      clearTimeout(sixTimer);
+      sixTimer = setTimeout(() => {
+        el6.querySelector('.what').textContent = what;
+        el6.classList.remove('show');
+        void el6.offsetWidth;
+        el6.classList.add('show');
+        document.body.classList.add('six-on');
+        sixTimer = setTimeout(() => { el6.classList.remove('show'); document.body.classList.remove('six-on'); }, 1900);
+      }, wait);
     },
     toast(html) {
       const t = document.createElement('div');

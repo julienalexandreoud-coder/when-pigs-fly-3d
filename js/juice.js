@@ -57,7 +57,6 @@ export function createJuice({ fx, audio, ui }) {
           fx.text(e.x, e.y, HIT_TEXT[e.kind] || 'OUCH!', { color: '#ff6b6b', size: 30 });
           fx.boom(e.x, e.y, 2.4 * k, e.kind === 'thunder' ? 'spark' : 'fire');
           fx.debris(e.x, e.y, 14, { colors: HIT_DEBRIS[e.kind] || ['#adb5bd'], speed: 12 * Math.sqrt(k), size: 0.35 * k });
-          fx.slowmo(0.22);
           audio.boom(false);
           return { squash: -0.2 };
         case 'wind':
@@ -106,7 +105,6 @@ export function createJuice({ fx, audio, ui }) {
             fx.debris(e.x, floor + 0.6, big ? 30 : 16, { colors: DIRT, speed: 6 + e.speed * 0.25, size: big ? 0.7 : 0.45, floor });
             if (big) {
               fx.text(e.x, e.y + 3, pick(['KABOOM', 'BOOM 💀', 'CRATERED']), { color: '#ffb020', size: 44, life: 1.4 });
-              fx.slowmo(0.55);
               fx.flash('255,220,160', 0.35);
               audio.boom(true);
             }
@@ -120,7 +118,6 @@ export function createJuice({ fx, audio, ui }) {
           fx.text(e.x, e.y + 2, 'SPLAT', { color: '#b08968', size: 38 });
           fx.boom(e.x, s.world.terrain.height(e.x) + 0.3, 3.5, 'mud');
           fx.debris(e.x, e.y, 22, { colors: ['#6b4226', '#7a5230', '#4d3019'], speed: 13, size: 0.45, floor: s.world.terrain.height(e.x) });
-          fx.slowmo(0.35);
           audio.boom(false);
           return { squash: -0.4 };
         case 'splash':
@@ -129,7 +126,6 @@ export function createJuice({ fx, audio, ui }) {
           fx.text(e.x, e.y + 2, 'SPLOOSH', { color: '#caf0f8', size: 38 });
           fx.boom(e.x, s.world.terrain.height(e.x), 3.5, 'water');
           fx.debris(e.x, e.y, 20, { colors: ['#9be7ff', '#ffffff', '#4cc9f0'], speed: 15, size: 0.35, up: 1.2 });
-          fx.slowmo(0.3);
           break;
         case 'end': {
           if (e.cause === 'moon' || e.cause === 'quit') break;
@@ -140,7 +136,7 @@ export function createJuice({ fx, audio, ui }) {
           fx.burst(e.x, floor + 2, 40, { colors: ['#ffd23f', '#ff7aa2', '#b8ff2e', '#26e0ff'], speed: 18, life: 1.4, size: 8, kind: 'confetti', gravity: 9 });
           fx.text(e.x, floor + 5, pick(['PIG.EXE STOPPED', 'BONK 💀', 'EMOTIONAL DAMAGE', 'HE FELL APART', 'OOF']), { color: '#ff2e88', size: 40, life: 1.6 });
           fx.shake(14);
-          fx.slowmo(0.5);
+          fx.slowmo(0.3);
           audio.boom(true);
           break;
         }

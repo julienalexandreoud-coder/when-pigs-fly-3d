@@ -29,7 +29,7 @@
 <div class="band"></div>
 <div class="title"><span class="a">WHEN</span> <span class="b">PIGS</span><br><span class="c">FLY</span><br><span class="tag">YEET THE PIG TO THE MOON</span></div>
 <script type="module">
-import { THREE, glow } from '../js/three/kit.js';
+import { THREE, glow, addOutlines } from '../js/three/kit.js';
 import { createSky } from '../js/three/sky3d.js';
 import { createGround } from '../js/three/ground3d.js';
 import { createFarm } from '../js/three/farm3d.js';
@@ -100,6 +100,7 @@ pig.root.rotateY(-Math.PI / 2 - 0.55);
 pig.root.rotateZ(0.5);
 pig.root.scale.setScalar(2.6);
 pig.update({ skin: skinById('pink'), tiers: { wings: 6, rocket: 5, helmet: 2 }, face: 'determined', boosting: true, t: 0.3, squash: 0, flap: 0.4 });
+addOutlines(pig.root, (o) => !o.material.transparent && !o.material.isMeshBasicMaterial);
 
 // Exhaust trail sweeping in from the bottom-left.
 const tail = at(L.trailTo[0], L.trailTo[1], L.pigDist * 1.3);

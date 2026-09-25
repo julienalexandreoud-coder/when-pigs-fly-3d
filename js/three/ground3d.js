@@ -3,6 +3,7 @@
 // Each chunk is one merged mesh plus water, plus merged decoration.
 
 import { THREE, Builder, G, mat, hash01, vertexToon, toon } from './kit.js';
+import { buildGrass } from './grass3d.js';
 import { SEG } from '../terrain.js';
 
 const XSTEP = 2.5;
@@ -10,7 +11,32 @@ const ZROWS = [-460, -380, -310, -260, -220, -185, -155, -130, -108, -90, -74, -
 const NEAR = 5;
 const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 
-const GRASS = ['#7fd35a', '#7ad056', '#84d85e', '#78cc55'];
+const GRASS = ['#7fd35a', '#7dd158', '#81d45c'];
+
+// Ground material: smooth Lambert + procedural value noise in world space, so
+// grass reads as soft patches (no textures shipped).
+let groundMat = null;
+function groundMaterial() {
+  if (groundMat) return groundMat;
+  groundMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  groundMat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWorldP;')
+      .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWorldP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>
+        varying vec3 vWorldP;
+        float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float vnoise(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y); }`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        float n = vnoise(vWorldP.xz * 0.09) * 0.55 + vnoise(vWorldP.xz * 0.45) * 0.3 + vnoise(vWorldP.xz * 2.2) * 0.15;
+        diffuseColor.rgb *= 0.86 + n * 0.28;
+        float farm = step(vWorldP.x, 14.0) * step(-60.0, vWorldP.x) * step(-40.0, vWorldP.z) * step(vWorldP.z, 20.0);
+        diffuseColor.rgb *= 1.0 + farm * 0.05 * sign(sin(vWorldP.x * 0.8));`);
+  };
+  return groundMat;
+}
 const c = new THREE.Color();
 
 // Land behind the flight line: a low valley of fields, rising into hills far back.
@@ -36,10 +62,32 @@ function fieldColor(x, z) {
   return FIELDS[Math.floor(hash01(fx, fz, 42) * FIELDS.length)];
 }
 
+const UP = new THREE.Vector3(0, 1, 0);
+let hedgeG = null;
+let pineG = null;
+function hedgeGeo() {
+  if (!hedgeG) {
+    hedgeG = new Builder().add(G.ico(1), '#ffffff', null, { flat: false }).build();
+    hedgeG.userData.shared = true;
+  }
+  return hedgeG;
+}
+// Pine with white foliage (tinted per instance) and a brown trunk.
+function pineGeo() {
+  if (!pineG) {
+    const b = new Builder();
+    b.add(G.cyl(0.3, 0.4, 6), '#6b4a3a', mat(0, 1, 0, 0, 0, 0, [1, 2, 1]));
+    for (let k = 0; k < 3; k++) b.add(G.cone(7), k % 2 ? '#e8f5e0' : '#ffffff', mat(0, 2.6 + k * 1.5, 0, 0, k, 0, [2.4 - k * 0.6, 2.4, 2.4 - k * 0.6]));
+    pineG = b.build();
+    pineG.userData.shared = true;
+  }
+  return pineG;
+}
+
 export function createGround(scene) {
   const chunks = new Map();
   const waterMat = new THREE.MeshToonMaterial({ color: '#4cc9f0', transparent: true, opacity: 0.88, gradientMap: toon('#fff').gradientMap });
-  const far = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000), new THREE.MeshLambertMaterial({ color: '#79c85a' }));
+  const far = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000), new THREE.MeshLambertMaterial({ color: '#6fbf52' }));
   far.rotation.x = -Math.PI / 2;
   far.position.y = -3;
   scene.add(far);
@@ -74,6 +122,7 @@ export function createGround(scene) {
     const cols = Math.round(SEG / XSTEP);
     const pos = [];
     const col = [];
+    const tris = [];
     const vert = (ix, iz) => {
       const x = x0 + ix * XSTEP;
       const z = ZROWS[iz];
@@ -81,12 +130,18 @@ export function createGround(scene) {
       return [x + jx, heightAt(terrain, x + jx, z), z];
     };
     const grid = [];
+    let idx = 0;
     for (let iz = 0; iz < ZROWS.length; iz++) {
       grid.push([]);
-      for (let ix = 0; ix <= cols; ix++) grid[iz].push(vert(ix, iz));
+      for (let ix = 0; ix <= cols; ix++) {
+        const v = vert(ix, iz);
+        v.idx = idx++;
+        pos.push(v[0], v[1], v[2]);
+        grid[iz].push(v);
+      }
     }
     const tri = (a, b, d) => {
-      pos.push(...a, ...b, ...d);
+      tris.push(a.idx, b.idx, d.idx);
       const cx = (a[0] + b[0] + d[0]) / 3;
       const cy = (a[1] + b[1] + d[1]) / 3;
       const cz = (a[2] + b[2] + d[2]) / 3;
@@ -103,11 +158,15 @@ export function createGround(scene) {
         tri(b, d, e);
       }
     }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    // Smooth normals from the shared grid, then per-triangle colors (crisp fields).
+    const sharedGeo = new THREE.BufferGeometry();
+    sharedGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    sharedGeo.setIndex(tris);
+    sharedGeo.computeVertexNormals();
+    const g = sharedGeo.toNonIndexed();
+    sharedGeo.dispose();
     g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-    g.computeVertexNormals();
-    const m = new THREE.Mesh(g, vertexToon());
+    const m = new THREE.Mesh(g, groundMaterial());
     m.receiveShadow = true;
     return m;
   }
@@ -115,9 +174,12 @@ export function createGround(scene) {
   function tree(b, x, y, z, s, v) {
     const trunk = '#8d5a35';
     if (v < 0.5) {
-      b.add(G.cyl(0.35, 0.45, 6), trunk, mat(x, y + 1.5 * s, z, 0, 0, 0, [s, 3 * s, s]));
-      b.add(G.ico(0), v < 0.25 ? '#3fa34d' : '#4cb35a', mat(x, y + 4.6 * s, z, v * 9, v * 5, 0, [2.6 * s, 2.4 * s, 2.6 * s]));
-      b.add(G.ico(0), '#56c263', mat(x + 0.8 * s, y + 5.8 * s, z + 0.4 * s, v * 3, 0, 0, [1.7 * s, 1.5 * s, 1.7 * s]));
+      const leaf = ['#3fa34d', '#4cb35a', '#5bbd4f', '#6cc24a'][Math.floor(v * 8) % 4];
+      b.add(G.cyl(0.3, 0.45, 7), trunk, mat(x, y + 1.5 * s, z, 0, 0, 0, [s, 3 * s, s]));
+      b.add(G.ico(1), leaf, mat(x, y + 4.4 * s, z, v * 9, v * 5, 0, [2.5 * s, 2.2 * s, 2.5 * s]), { flat: false });
+      b.add(G.ico(1), leaf, mat(x + 1.1 * s, y + 5.3 * s, z + 0.5 * s, v * 3, 0, 0, [1.7 * s, 1.5 * s, 1.7 * s]), { flat: false });
+      b.add(G.ico(1), leaf, mat(x - 0.9 * s, y + 5.6 * s, z - 0.4 * s, v * 5, 1, 0, [1.5 * s, 1.4 * s, 1.5 * s]), { flat: false });
+      if (v < 0.15) for (let k = 0; k < 4; k++) b.add(G.sphere(6, 4), '#e63946', mat(x + Math.cos(k * 1.7) * 2.2 * s, y + (4 + k * 0.4) * s, z + Math.sin(k * 1.7) * 2.2 * s, 0, 0, 0, 0.22 * s));
     } else {
       b.add(G.cyl(0.3, 0.4, 6), trunk, mat(x, y + 1 * s, z, 0, 0, 0, [s, 2 * s, s]));
       for (let k = 0; k < 3; k++) {
@@ -127,8 +189,8 @@ export function createGround(scene) {
   }
 
   function bush(b, x, y, z, s) {
-    b.add(G.ico(0), '#5cbf4f', mat(x, y + 0.6 * s, z, 0, s * 4, 0, [1.4 * s, 1 * s, 1.2 * s]));
-    b.add(G.ico(0), '#6fd062', mat(x + 0.9 * s, y + 0.5 * s, z + 0.3, 0, s, 0, [0.9 * s, 0.8 * s, 0.9 * s]));
+    b.add(G.ico(1), '#4fb548', mat(x, y + 0.6 * s, z, 0, s * 4, 0, [1.4 * s, 1 * s, 1.2 * s]), { flat: false });
+    b.add(G.ico(1), '#62c455', mat(x + 0.9 * s, y + 0.5 * s, z + 0.3, 0, s, 0, [0.9 * s, 0.8 * s, 0.9 * s]), { flat: false });
     if (s > 1) b.add(G.sphere(6, 4), '#ff5d8f', mat(x + 0.3, y + 1.4 * s, z + 0.8, 0, 0, 0, 0.18));
   }
 
@@ -170,6 +232,7 @@ export function createGround(scene) {
   function decorMesh(terrain, i) {
     const seg = terrain.segment(i);
     const b = new Builder();
+    const farB = new Builder();
     for (const d of seg.decor) {
       const z = -7 - hash01(Math.floor(d.x * 10), i, 1) * 9;
       const y = heightAt(terrain, d.x, z);
@@ -186,8 +249,8 @@ export function createGround(scene) {
         b.add(G.sphere(8, 5), '#5a3a22', mat(x, terrain.height(x) + 0.05, (hash01(i, k, 8) - 0.5) * 8, 0, 0, 0, [1.2, 0.3, 0.9]));
       }
     }
-    // Scatter behind the flight line: groves, sheep, bushes.
     const x0 = i * SEG;
+    // Scatter behind the flight line: groves, sheep, bushes.
     if (x0 > -120) {
       const n = 10 + Math.floor(hash01(i, 5) * 10);
       for (let k = 0; k < n; k++) {
@@ -196,9 +259,10 @@ export function createGround(scene) {
         const z = -20 - hash01(i, k, 12) ** 1.4 * 260;
         const y = heightAt(terrain, x, z);
         const v = hash01(i, k, 13);
-        if (v < 0.72) tree(b, x, y, z, 1 + hash01(i, k, 14) * 0.9, hash01(i, k, 15));
-        else if (v < 0.88) bush(b, x, y, z, 1.2);
-        else if (z > -80) sheep(b, x, y, z, v);
+        const tb = z < -45 ? farB : b;
+        if (v < 0.72) tree(tb, x, y, z, 1 + hash01(i, k, 14) * 0.9, hash01(i, k, 15));
+        else if (v < 0.88) bush(tb, x, y, z, 1.2);
+        else if (z > -80) sheep(tb, x, y, z, v);
       }
       // A few things in front of the line, low and out of the way.
       for (let k = 0; k < 3; k++) {
@@ -208,7 +272,53 @@ export function createGround(scene) {
         bush(b, x, heightAt(terrain, x, z), z, 0.9 + hash01(i, k, 23));
       }
     }
-    return b.empty ? null : b.mesh({ shadow: true });
+    const out = [];
+    if (!b.empty) out.push(b.mesh({ shadow: true }));
+    if (!farB.empty) out.push(farB.mesh({ shadow: false }));
+    return out;
+  }
+
+  // Hedgerows along the field borders and forests on the far hills: instanced
+  // copies of two shared models (almost free to build).
+  function instancedFar(terrain, i) {
+    const x0 = i * SEG;
+    const out = [];
+    if (x0 <= -60) return out;
+    const hedge = [];
+    for (let row = 2; row <= 7; row++) {
+      const hz = -row * 38;
+      for (let hx = x0; hx < x0 + SEG; hx += 2.6) {
+        if (hash01(Math.floor(hx), row, 61) < 0.12) continue;
+        const zz = hz + (hash01(Math.floor(hx), row, 62) - 0.5) * 1.2;
+        const s2 = 1.1 + hash01(Math.floor(hx), row, 63) * 0.6;
+        hedge.push([hx, heightAt(terrain, hx, zz) + 0.8 * s2, zz, s2, hash01(Math.floor(hx), row, 64)]);
+      }
+    }
+    const trees = [];
+    for (let k = 0; k < 30; k++) {
+      const x = x0 + hash01(i, k, 71) * SEG;
+      const z = -290 - hash01(i, k, 72) * 160;
+      trees.push([x, heightAt(terrain, x, z), z, 2.2 + hash01(i, k, 73) * 1.6, hash01(i, k, 74)]);
+    }
+    const m4 = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const tint = new THREE.Color();
+    const make = (geo, list, scaleFn) => {
+      const mesh = new THREE.InstancedMesh(geo, vertexToon(), list.length);
+      list.forEach(([x, y, z, sc, v], k) => {
+        q.setFromAxisAngle(UP, v * 6.28);
+        m4.compose(new THREE.Vector3(x, y, z), q, scaleFn(sc));
+        mesh.setMatrixAt(k, m4);
+        mesh.setColorAt(k, tint.setHSL(0.3 + v * 0.05, 0.5, 0.42 + v * 0.1));
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.instanceColor.needsUpdate = true;
+      mesh.computeBoundingSphere();
+      return mesh;
+    };
+    if (hedge.length) out.push(make(hedgeGeo(), hedge, (sc) => new THREE.Vector3(1.6 * sc, 1.2 * sc, 1.3 * sc)));
+    if (trees.length) out.push(make(pineGeo(), trees, (sc) => new THREE.Vector3(sc, sc, sc)));
+    return out;
   }
 
   function waterMesh(terrain, i) {
@@ -222,21 +332,28 @@ export function createGround(scene) {
     return m;
   }
 
-  function build(terrain, i) {
-    const grp = new THREE.Group();
-    grp.add(groundMesh(terrain, i));
-    const d = decorMesh(terrain, i);
-    if (d) grp.add(d);
-    const w = waterMesh(terrain, i);
-    if (w) grp.add(w);
-    return grp;
+  // Ground height where grass may grow, or null (path, water, mud, farm yard).
+  function grassSpot(terrain, x, z) {
+    const ft = terrain.segment(Math.floor(x / SEG)).feature;
+    if (ft && (ft.type === 'pond' || ft.type === 'mud') && Math.abs(z) < 8.5 && x > ft.x0 - 3 && x < ft.x1 + 3) return null;
+    if (ft && (ft.type === 'haystack' || ft.type === 'trampoline') && Math.abs(z) < 4 && Math.abs(x - ft.x) < 4) return null;
+    if (x < 8 && x > -30 && Math.abs(z + 1) < 2.6) return null;
+    if (x < -8 && x > -60 && z < -3 && z > -40) return null;
+    if (x > -4 && x < 4 && Math.abs(z) < 3) return null;
+    return heightAt(terrain, x, z);
   }
+
+  const STAGES = [
+    (terrain, i, grp) => { grp.add(groundMesh(terrain, i)); const w = waterMesh(terrain, i); if (w) grp.add(w); },
+    (terrain, i, grp) => { for (const d of decorMesh(terrain, i)) grp.add(d); },
+    (terrain, i, grp) => { for (const d of instancedFar(terrain, i)) grp.add(d); grp.add(buildGrass(i, i * SEG, SEG, (x, z) => grassSpot(terrain, x, z))); },
+  ];
 
   let currentTerrain = null;
   function clear() {
     for (const g of chunks.values()) {
       scene.remove(g);
-      g.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+      g.traverse((o) => { if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose(); });
     }
     chunks.clear();
   }
@@ -254,7 +371,7 @@ export function createGround(scene) {
       for (const [i, g] of chunks) {
         if (i < i0 - 1 || i > i1 + 1) {
           scene.remove(g);
-          g.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+          g.traverse((o) => { if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose(); });
           chunks.delete(i);
         } else {
           g.visible = visible;
@@ -267,14 +384,27 @@ export function createGround(scene) {
       for (let i = i0; i <= i1; i++) if (!chunks.has(i)) order.push(i);
       const mid = (i0 + i1) / 2;
       order.sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));
-      const budget = chunks.size < 3 ? 6 : 1;
-      let built = 0;
+      // Finish partly built chunks first, one stage per frame (more at startup).
+      let budget = chunks.size < 3 ? 18 : 1;
+      for (const g of chunks.values()) {
+        while (budget > 0 && g.userData.stage < STAGES.length) {
+          STAGES[g.userData.stage](terrain, g.userData.i, g);
+          g.userData.stage += 1;
+          budget -= 1;
+        }
+      }
       for (const i of order) {
-        if (built >= budget) break;
-        const g = build(terrain, i);
+        if (budget <= 0) break;
+        const g = new THREE.Group();
+        g.userData.i = i;
+        g.userData.stage = 0;
         scene.add(g);
         chunks.set(i, g);
-        built++;
+        while (budget > 0 && g.userData.stage < STAGES.length) {
+          STAGES[g.userData.stage](terrain, i, g);
+          g.userData.stage += 1;
+          budget -= 1;
+        }
       }
     },
     setFarY(y) { far.position.y = y; },

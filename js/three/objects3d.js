@@ -1,7 +1,7 @@
 // 3D models for the world's sky objects. Models are built once per type
 // (unit size), pooled, and placed each frame from world.query results.
 
-import { THREE, Builder, G, mat, toon, glow, starGeometry, boltGeometry, hash01, gradientMap } from './kit.js';
+import { THREE, Builder, G, mat, toon, glow, starGeometry, boltGeometry, hash01, gradientMap, addOutlines } from './kit.js';
 
 const LIVERIES = [['#f8f9fa', '#1d3557'], ['#f8f9fa', '#e63946'], ['#ffd166', '#2a9d8f']];
 const shared = (g) => { g.userData.shared = true; return g; };
@@ -24,6 +24,8 @@ function coinGeo() {
   b.add(G.box(), '#e0a400', mat(0, 0, 0, 0, 0, 0, [0.22, 0.8, 0.3]));
   return b.build();
 }
+
+const OUTLINED = new Set(['balloon', 'wballoon', 'goose', 'hotair', 'plane', 'ufo', 'fuel', 'satellite']);
 
 const MAKERS = {
   coin() {
@@ -380,6 +382,7 @@ export function createObjects(scene) {
     if (!make) return null;
     const m = make();
     m.traverse((c) => { if (c.isMesh) c.castShadow = type !== 'updraft' && type !== 'jetstream'; });
+    if (OUTLINED.has(type)) addOutlines(m, (o) => !o.material.transparent && !o.material.isMeshBasicMaterial);
     return m;
   }
 

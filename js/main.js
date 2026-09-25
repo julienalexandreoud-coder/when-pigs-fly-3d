@@ -468,10 +468,12 @@ const juice = createJuice({ fx, audio, ui });
 window.addEventListener('pointerdown', () => { audio.unlock(); audio.startMusic(); }, { once: true, capture: true });
 window.addEventListener('keydown', () => { audio.unlock(); audio.startMusic(); }, { once: true, capture: true });
 
+const AUTO_PAUSE = !(DEBUG && PARAMS.has('nopause'));
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) pause();
+  if (document.hidden && AUTO_PAUSE) pause();
 });
-window.addEventListener('blur', () => pause());
+// ?debug&nopause keeps flights running when the window loses focus (automated screenshots).
+if (AUTO_PAUSE) window.addEventListener('blur', () => pause());
 window.addEventListener('resize', () => renderer.resize());
 
 // ---------- loop ----------

@@ -39,6 +39,7 @@ html, body {
 }
 
 canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.vignette { position: fixed; inset: 0; pointer-events: none; z-index: 1; background: radial-gradient(ellipse at 50% 45%, transparent 58%, rgba(30, 10, 40, 0.28) 100%); }
 
 .hidden { display: none !important; }
 
@@ -193,18 +194,20 @@ body.muted .icon .wave { display: none; }
 
 /* "6 7" callout: numbers see-saw like the hand gesture */
 .six-seven {
-  position: fixed; left: 50%; top: 66%; z-index: 9; pointer-events: none; display: flex; align-items: center; gap: 10px;
+  position: fixed; left: 50%; top: 27%; z-index: 9; pointer-events: none; display: flex; align-items: center; gap: 10px;
   transform: translate(-50%, -50%) scale(0); opacity: 0;
 }
 .six-seven.show { animation: six-in 1.9s cubic-bezier(.2,1.8,.4,1) forwards; }
 @keyframes six-in { 0% { transform: translate(-50%, -50%) scale(0) rotate(-20deg); opacity: 0; } 12%, 80% { transform: translate(-50%, -50%) scale(1) rotate(-4deg); opacity: 1; } 100% { transform: translate(-50%, -80%) scale(0.8); opacity: 0; } }
-.six-seven b { font-family: var(--display); font-weight: 400; font-size: clamp(64px, 12vw, 120px); line-height: 1; color: var(--lime); -webkit-text-stroke: 6px var(--ink); paint-order: stroke fill; text-shadow: 6px 7px 0 var(--hot); }
+.six-seven b { font-family: var(--font); font-weight: 400; font-size: clamp(64px, 12vw, 120px); line-height: 1; color: var(--lime); -webkit-text-stroke: 6px var(--ink); paint-order: stroke fill; text-shadow: 6px 7px 0 var(--hot); }
 .six-seven b i { font-style: normal; display: inline-block; animation: seesaw 0.32s ease-in-out infinite alternate; }
 .six-seven b i + i { color: var(--yel); animation-direction: alternate-reverse; }
 @keyframes seesaw { from { transform: translateY(18px) rotate(-6deg); } to { transform: translateY(-18px) rotate(6deg); } }
 .six-seven .hand { font-size: clamp(40px, 8vw, 72px); animation: seesaw 0.32s ease-in-out infinite alternate; filter: drop-shadow(3px 3px 0 var(--ink)); }
 .six-seven .hand.r { animation-direction: alternate-reverse; }
 .six-seven .what { position: absolute; left: 50%; bottom: -26px; transform: translateX(-50%) rotate(2deg); white-space: nowrap; font-family: var(--display); font-size: 22px; letter-spacing: 1px; background: var(--ink); color: var(--lime); padding: 2px 10px 0; border-radius: 4px; }
+
+body.six-on .hint { opacity: 0; }
 
 /* ---------- overlays ---------- */
 .overlay { position: fixed; inset: 0; z-index: 10; }

@@ -318,7 +318,7 @@ export function createPig() {
     const center = new THREE.Vector3().setFromMatrixPosition(root.matrixWorld);
     const size = root.scale.x;
     root.traverse((o) => {
-      if (!o.isMesh || !o.visible || !o.geometry) return;
+      if (!o.isMesh || !o.visible || !o.geometry || o.userData.outline) return;
       let vis = true;
       for (let p = o.parent; p; p = p.parent) if (!p.visible) vis = false;
       if (!vis || o.material.blending === THREE.AdditiveBlending) return;
@@ -328,6 +328,11 @@ export function createPig() {
       m.quaternion.copy(tmpQ);
       m.scale.copy(tmpS);
       m.castShadow = true;
+      if (o.children.some((ch) => ch.userData.outline)) {
+        const line = new THREE.Mesh(o.geometry, o.children.find((ch) => ch.userData.outline).material);
+        line.userData.outline = true;
+        m.add(line);
+      }
       const dir = tmpV.clone().sub(center);
       dir.z += (Math.random() - 0.5) * size;
       if (dir.lengthSq() < 1e-4) dir.set(Math.random() - 0.5, 1, Math.random() - 0.5);

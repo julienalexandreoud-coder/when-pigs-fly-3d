@@ -9,8 +9,9 @@ let gradient = null;
 // Three-step light ramp: the cartoon "cel" look for every toon material.
 export function gradientMap() {
   if (gradient) return gradient;
-  const data = new Uint8Array([120, 120, 120, 255, 200, 200, 200, 255, 255, 255, 255, 255]);
-  gradient = new THREE.DataTexture(data, 3, 1, THREE.RGBAFormat);
+  // Four soft steps: readable cel shading without harsh banding.
+  const data = new Uint8Array([150, 150, 150, 255, 190, 190, 190, 255, 226, 226, 226, 255, 255, 255, 255, 255]);
+  gradient = new THREE.DataTexture(data, 4, 1, THREE.RGBAFormat);
   gradient.minFilter = THREE.NearestFilter;
   gradient.magFilter = THREE.NearestFilter;
   gradient.generateMipmaps = false;
@@ -70,6 +71,30 @@ export function mat(x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, s = 1) {
   return tmpM.clone().compose(tmpP, tmpQ, tmpS);
 }
 
+const IDENTITY_M = new THREE.Matrix4();
+const IDENTITY = IDENTITY_M.elements;
+const nm = new THREE.Matrix3();
+const baseFlat = new WeakMap();
+const baseSmooth = new WeakMap();
+function baseArrays(geom, flat) {
+  const cache = flat ? baseFlat : baseSmooth;
+  let b = cache.get(geom);
+  if (!b) {
+    const g = geom.index ? geom.toNonIndexed() : geom.clone();
+    if (flat || !g.attributes.normal) g.computeVertexNormals();
+    b = { pos: g.attributes.position.array.slice(), nrm: g.attributes.normal.array.slice() };
+    g.dispose();
+    cache.set(geom, b);
+  }
+  return b;
+}
+const colors = new Map();
+function colorCache(color) {
+  let c = colors.get(color);
+  if (!c) { c = new THREE.Color(color); colors.set(color, c); }
+  return c;
+}
+
 // Collects geometries (each with a color and transform) into one
 // non-indexed, vertex-colored BufferGeometry.
 export class Builder {
@@ -79,19 +104,35 @@ export class Builder {
     this.col = [];
   }
 
+  // Fast path: the unit shape's non-indexed positions/normals are cached once,
+  // then transformed here (no geometry clones or normal recomputation).
   add(geom, color, matrix = null, { flat = true } = {}) {
-    let g = geom.index ? geom.toNonIndexed() : geom.clone();
-    if (matrix) g.applyMatrix4(matrix);
-    if (flat) g.computeVertexNormals();
-    const c = new THREE.Color(color);
-    const p = g.attributes.position.array;
-    const n = g.attributes.normal.array;
-    for (let i = 0; i < p.length; i++) {
-      this.pos.push(p[i]);
-      this.nrm.push(n[i]);
+    const base = baseArrays(geom, flat);
+    const c = colorCache(color);
+    const p = base.pos;
+    const n = base.nrm;
+    const e = matrix ? matrix.elements : IDENTITY;
+    nm.getNormalMatrix(matrix || IDENTITY_M);
+    const ne = nm.elements;
+    const P = this.pos;
+    const N = this.nrm;
+    const C = this.col;
+    for (let i = 0; i < p.length; i += 3) {
+      const x = p[i];
+      const y = p[i + 1];
+      const z = p[i + 2];
+      P.push(e[0] * x + e[4] * y + e[8] * z + e[12], e[1] * x + e[5] * y + e[9] * z + e[13], e[2] * x + e[6] * y + e[10] * z + e[14]);
+      const a = n[i];
+      const b = n[i + 1];
+      const d = n[i + 2];
+      let nx = ne[0] * a + ne[3] * b + ne[6] * d;
+      let ny = ne[1] * a + ne[4] * b + ne[7] * d;
+      let nz = ne[2] * a + ne[5] * b + ne[8] * d;
+      const len = Math.hypot(nx, ny, nz) || 1;
+      nx /= len; ny /= len; nz /= len;
+      N.push(nx, ny, nz);
+      C.push(c.r, c.g, c.b);
     }
-    for (let i = 0; i < p.length / 3; i++) this.col.push(c.r, c.g, c.b);
-    g.dispose();
     return this;
   }
 
@@ -136,14 +177,22 @@ export class Builder {
 }
 
 // ---------- shape factories (unit sized) ----------
+// Memoized: the same unit geometry instance is reused everywhere (marked shared
+// so nothing disposes it).
+const geoMemo = new Map();
+function memo(key, make) {
+  let g = geoMemo.get(key);
+  if (!g) { g = make(); g.userData.shared = true; geoMemo.set(key, g); }
+  return g;
+}
 export const G = {
-  sphere: (w = 12, h = 9) => new THREE.SphereGeometry(1, w, h),
-  ico: (d = 1) => new THREE.IcosahedronGeometry(1, d),
-  box: () => new THREE.BoxGeometry(1, 1, 1),
-  cyl: (top = 1, bottom = 1, seg = 12) => new THREE.CylinderGeometry(top, bottom, 1, seg),
-  cone: (seg = 10) => new THREE.ConeGeometry(1, 1, seg),
-  torus: (tube = 0.25, arc = Math.PI * 2, seg = 16) => new THREE.TorusGeometry(1, tube, 8, seg, arc),
-  dodeca: (d = 0) => new THREE.DodecahedronGeometry(1, d),
+  sphere: (w = 12, h = 9) => memo(`s${w},${h}`, () => new THREE.SphereGeometry(1, w, h)),
+  ico: (d = 1) => memo(`i${d}`, () => new THREE.IcosahedronGeometry(1, d)),
+  box: () => memo('b', () => new THREE.BoxGeometry(1, 1, 1)),
+  cyl: (top = 1, bottom = 1, seg = 12) => memo(`c${top},${bottom},${seg}`, () => new THREE.CylinderGeometry(top, bottom, 1, seg)),
+  cone: (seg = 10) => memo(`k${seg}`, () => new THREE.ConeGeometry(1, 1, seg)),
+  torus: (tube = 0.25, arc = Math.PI * 2, seg = 16) => memo(`t${tube},${arc},${seg}`, () => new THREE.TorusGeometry(1, tube, 8, seg, arc)),
+  dodeca: (d = 0) => memo(`d${d}`, () => new THREE.DodecahedronGeometry(1, d)),
 };
 
 // Five-pointed star extruded to a thin slab, lying in the XY plane.
@@ -180,6 +229,42 @@ export function hash01(a, b = 0, c = 0) {
   h ^= h >>> 16;
   return (h >>> 0) / 4294967296;
 }
+
+// ---------- cartoon outlines (inverted hull, constant screen width) ----------
+let outlineMat = null;
+export function outlineMaterial() {
+  if (outlineMat) return outlineMat;
+  outlineMat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: { width: { value: 0.0032 }, color: { value: new THREE.Color('#2a1a24') } },
+    vertexShader: `uniform float width;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vec3 n = normalize(normalMatrix * normal);
+        mv.xyz += n * width * max(1.0, -mv.z);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `uniform vec3 color; void main() { gl_FragColor = vec4(color, 1.0); }`,
+  });
+  return outlineMat;
+}
+
+// Adds an outline child to every mesh under `root` that passes `filter`.
+export function addOutlines(root, filter = () => true) {
+  const targets = [];
+  root.traverse((o) => { if (o.isMesh && !o.userData.outline && filter(o)) targets.push(o); });
+  for (const o of targets) {
+    if (o.children.some((ch) => ch.userData.outline)) continue;
+    const line = new THREE.Mesh(o.geometry, outlineMaterial());
+    line.userData.outline = true;
+    line.raycast = () => {};
+    o.add(line);
+  }
+  return root;
+}
+
+// Shared animated uniforms (wind for grass, water shimmer).
+export const WORLD_TIME = { value: 0 };
 
 export function disposeTree(obj) {
   obj.traverse((o) => {

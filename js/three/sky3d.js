@@ -88,7 +88,7 @@ function cloudGeometry(v) {
     const x = (i - (n - 1) / 2) * 0.55 + (hash01(v, i, 1) - 0.5) * 0.3;
     const r = 0.45 + hash01(v, i, 2) * 0.4 - Math.abs(x) * 0.18;
     const y = r * 0.45 + hash01(v, i, 3) * 0.15;
-    b.addPainted(G.ico(1), (px, py) => new THREE.Color(py < 0.12 ? '#dbe7f5' : '#ffffff'), mat(x, y, (hash01(v, i, 4) - 0.5) * 0.4, 0, 0, 0, [r, r * 0.9, r * 0.8]));
+    b.add(G.ico(2), '#ffffff', mat(x, y, (hash01(v, i, 4) - 0.5) * 0.4, 0, 0, 0, [r, r * 0.9, r * 0.8]), { flat: false });
   }
   const g = b.build();
   g.userData.shared = true;
@@ -163,7 +163,7 @@ export function createSky(scene) {
             const y = gy * cell + hash01(gx, gy, k + 11) * cell;
             if (y < L.from || y > L.to) continue;
             const x = gx * cell + hash01(gx, gy, k + 12) * cell;
-            const z = -(35 + hash01(gx, gy, k + 13) * 190) * S;
+            const z = (k === 1 && hash01(gx, gy, 19) < 0.5 ? -(12 + hash01(gx, gy, k + 13) * 25) : -(35 + hash01(gx, gy, k + 13) * 190)) * S;
             const size = (7 + hash01(gx, gy, k + 14) * 9) * S;
             cloudAt(`${b}:${gx}:${gy}:${k}`, x, y, z, size, Math.floor(hash01(gx, gy, k + 15) * CLOUD_VARIANTS));
             if (++count >= MAX_CLOUDS) break;
