@@ -47,7 +47,10 @@ const S = {
   username: null, adBusy: false, autoplay: false, endTimer: 0, sixSeven: new Set(),
 };
 
-const canAds = () => Sdk.available || DEBUG;
+// CrazyGames Basic Launch does not allow ads: keep this false until the game is
+// moved to Full Launch, then set it to true (or test with ?debug&ads).
+const ADS_ENABLED = false;
+const canAds = () => (ADS_ENABLED && Sdk.available) || (DEBUG && PARAMS.has('ads'));
 const hasRocket = () => (save.upgrades.rocket || 0) > 0;
 
 function persist(next) {
@@ -431,7 +434,7 @@ const ui = createUI({
   },
   async onAgain() {
     audio.click();
-    if (Sdk.shouldShowMidgame(save.flights)) {
+    if (canAds() && Sdk.shouldShowMidgame(save.flights)) {
       Sdk.markMidgame();
       await showAd('midgame');
     }
