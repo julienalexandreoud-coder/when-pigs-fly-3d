@@ -4,6 +4,7 @@ import { MOON_ALT, formatDistance, formatInt, kmh } from './config.js';
 import { missionText, missionValue } from './missions.js';
 import { nextMedal, medalText, affordableCount } from './economy.js';
 import { createPanels } from './panels.js';
+import { logoHTML } from './logo.js';
 
 const $ = (id) => document.getElementById(id);
 const SCREENS = ['ready', 'results', 'barn', 'records', 'pause', 'moonwin', 'daily'];
@@ -43,6 +44,7 @@ export function createUI(handlers) {
   document.querySelectorAll('button').forEach((b) => b.addEventListener('pointerdown', (e) => e.stopPropagation()));
 
   const panels = createPanels(handlers);
+  $('game-logo').innerHTML = logoHTML();
 
   function show(name) {
     for (const s of SCREENS) $(s).classList.toggle('hidden', s !== name);

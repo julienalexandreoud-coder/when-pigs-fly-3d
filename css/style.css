@@ -255,11 +255,8 @@ body.six-on .hint { opacity: 0; }
 .ready { pointer-events: none; }
 .ready button { pointer-events: auto; }
 .ready-top { position: absolute; top: max(6px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); text-align: center; width: min(94vw, 600px); }
-.logo { margin: 0; font-size: clamp(50px, 9.5vw, 96px); font-weight: 400; line-height: 0.95; color: #fff; -webkit-text-stroke: 5px var(--ink); text-shadow: 4px 6px 0 var(--ink); }
-.logo span { display: inline-block; }
-.logo .w1 { transform: rotate(-7deg) translateY(4px); }
-.logo .w2 { color: var(--hot); transform: rotate(3deg); }
-.logo .w3 { color: var(--lime); animation: fly 0.9s ease-in-out infinite alternate; }
+.logo { margin: 0 0 6px; font-size: clamp(46px, 7.6vw, 86px); font-weight: 400; line-height: 1; }
+.ready-top .tagline { display: none; }
 @keyframes fly { from { transform: rotate(-4deg); } to { transform: translateY(-12px) rotate(9deg) scale(1.08); } }
 .tagline {
   display: inline-block; margin: 6px 0 8px; font-size: 18px; color: #fff; background: var(--ink); padding: 3px 12px 1px; transform: rotate(-1.5deg);
@@ -381,7 +378,7 @@ h3.sub { margin: 6px 0 0; font-family: var(--display); font-size: 26px; font-wei
   .ready-side .btn { font-size: 20px; padding: 8px 12px 6px; min-height: 46px; }
 }
 @media (max-height: 520px) and (orientation: landscape) {
-  .logo { font-size: 44px; }
+  .logo { font-size: 26px; }
   .tagline, .goal-hint { display: none; }
   .missions { top: auto; bottom: 16px; transform: none; }
   .mission { padding: 4px 8px; }

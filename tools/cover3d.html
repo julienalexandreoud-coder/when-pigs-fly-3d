@@ -4,32 +4,29 @@
 <meta charset="utf-8" />
 <title>When Pigs Fly 3D cover</title>
 <script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script>
+<link rel="stylesheet" href="../css/logo.css" />
 <style>
   @font-face { font-family: 'Bangers'; src: url('../fonts/bangers.woff2') format('woff2'); }
   html, body { margin: 0; overflow: hidden; background: #000; }
   canvas { display: block; }
-  /* CrazyGames covers its top-left corner with labels: title goes top-right
+  /* CrazyGames covers its top-left corner with labels: the logo goes top-right
      (landscape) or in a bottom band (portrait / square). */
-  .title { position: fixed; font-family: 'Bangers', Impact, sans-serif; color: #fff; line-height: 0.9; letter-spacing: 2px;
-    -webkit-text-stroke: calc(var(--u) * 1.1) #141014; paint-order: stroke fill; text-shadow: calc(var(--u) * 0.9) calc(var(--u) * 1.2) 0 #141014; }
-  .title span { display: inline-block; }
-  .title .a { transform: rotate(-6deg); }
-  .title .b { color: #ff2e88; transform: rotate(3deg); }
-  .title .c { color: #b8ff2e; transform: rotate(-4deg) translateY(calc(var(--u) * -1)); }
-  .wide .title { right: 3.5%; top: 6%; text-align: right; font-size: calc(var(--u) * 15); }
-  .tall .title { left: 0; right: 0; bottom: 5%; text-align: center; font-size: calc(var(--u) * 17); }
-  .square .title { font-size: calc(var(--u) * 12.5); bottom: 4%; }
-  .tall .band { position: fixed; left: 0; right: 0; bottom: 0; height: 34%; background: linear-gradient(transparent, rgba(20,16,20,0.55)); }
-  .tag { display: inline-block; margin-top: calc(var(--u) * 1.5); font-size: calc(var(--u) * 4.2); background: #141014; color: #b8ff2e; padding: calc(var(--u) * 0.6) calc(var(--u) * 2);
-    -webkit-text-stroke: 0; text-shadow: none; transform: rotate(-2deg); box-shadow: calc(var(--u) * 0.6) calc(var(--u) * 0.6) 0 #ff2e88; letter-spacing: 1px; }
+  .brand { position: fixed; display: flex; flex-direction: column; align-items: center; }
+  .wide .brand { right: 4%; top: 4%; font-size: calc(var(--u) * 17.5); }
+  .tall .brand { left: 0; right: 0; bottom: 4%; font-size: calc(var(--u) * 20); }
+  .square .brand { font-size: calc(var(--u) * 13.5); bottom: 3%; }
+  .band { position: fixed; left: 0; right: 0; bottom: 0; height: 0; }
+  .tall .band { height: 38%; background: linear-gradient(transparent, rgba(40, 10, 60, 0.45) 55%, rgba(20, 8, 30, 0.7)); }
+  .tag { margin-top: 0.12em; font-family: 'Bangers', Impact, sans-serif; font-size: 0.24em; letter-spacing: 0.04em; background: #141014; color: #b8ff2e;
+    padding: 0.14em 0.5em 0.08em; transform: rotate(-2deg); box-shadow: 0.1em 0.1em 0 #ff2e88; border-radius: 0.1em; }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div class="band"></div>
-<div class="title"><span class="a">WHEN</span> <span class="b">PIGS</span><br><span class="c">FLY</span><br><span class="tag">YEET THE PIG TO THE MOON</span></div>
+<div class="brand"><div class="wpf-logo" id="logo"></div><div class="tag">YEET THE PIG TO THE MOON</div></div>
 <script type="module">
-import { THREE, glow, addOutlines } from '../js/three/kit.js';
+import { THREE, Builder, G, mat, addOutlines, hash01 } from '../js/three/kit.js';
 import { createSky } from '../js/three/sky3d.js';
 import { createGround } from '../js/three/ground3d.js';
 import { createFarm } from '../js/three/farm3d.js';
@@ -37,12 +34,16 @@ import { createObjects } from '../js/three/objects3d.js';
 import { createPig } from '../js/three/pig3d.js';
 import { createWorld } from '../js/world.js';
 import { skinById } from '../js/upgrades.js';
+import { logoHTML, WING_SVG } from '../js/logo.js';
+
+document.getElementById('logo').innerHTML = logoHTML();
 
 const q = new URLSearchParams(location.search);
 const W = Number(q.get('w') || 1920);
 const H = Number(q.get('h') || 1080);
 const wide = W > H * 1.2;
-document.body.className = wide ? 'wide' : H < W * 1.2 ? 'tall square' : 'tall';
+const square = !wide && H < W * 1.2;
+document.body.className = wide ? 'wide' : square ? 'tall square' : 'tall';
 document.body.style.setProperty('--u', `${Math.min(W, H) / 100}px`);
 
 const canvas = document.getElementById('c');
@@ -55,9 +56,9 @@ gl.shadowMap.enabled = true;
 gl.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog('#dff4ff', 400, 2600);
-const camera = new THREE.PerspectiveCamera(wide ? 38 : 50, W / H, 0.5, 30000);
-scene.add(new THREE.HemisphereLight('#e3f2ff', '#7a9a5a', 1.5));
+scene.fog = new THREE.Fog('#dff4ff', 500, 3000);
+const camera = new THREE.PerspectiveCamera(wide ? 40 : 52, W / H, 0.5, 30000);
+scene.add(new THREE.HemisphereLight('#eaf5ff', '#7a9a5a', 1.6));
 const sun = new THREE.DirectionalLight('#fff3dc', 2.4);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
@@ -73,13 +74,15 @@ const objects = createObjects(scene);
 const pig = createPig();
 scene.add(pig.root);
 
-// Low camera looking up at the pig; everything else is placed in screen space
-// (normalized device coords) so each cover size keeps the same composition.
+// Composition per format, in normalized device coords (x, y in -1..1).
 const L = wide
-  ? { pig: [-0.22, -0.2], pigDist: 34, moon: [0.5, -0.05], trailTo: [-1.1, -1.0] }
-  : { pig: [0.0, 0.18], pigDist: 38, moon: [0.45, 0.62], trailTo: [-0.9, -0.55] };
+  ? { pig: [-0.3, -0.02], pigDist: 33, pigScale: 2.8, moon: [0.62, -0.35], moonSize: 150, trail: [[-0.62, -0.42], [-1.15, -0.9]], coins: [0.12, 0.2], balloons: [[-0.85, 0.55, '#ff4d6d'], [0.15, 0.62, '#ffb703']] }
+  : square
+    ? { pig: [-0.06, 0.3], pigDist: 34, pigScale: 2.8, moon: [0.62, 0.74], moonSize: 120, trail: [[-0.45, 0.02], [-1.1, -0.35]], coins: [0.14, 0.52], balloons: [[-0.85, 0.05, '#ff4d6d'], [0.85, 0.12, '#06d6a0']] }
+    : { pig: [0.0, 0.3], pigDist: 33, pigScale: 3.0, moon: [0.58, 0.76], moonSize: 115, trail: [[-0.4, 0.05], [-1.1, -0.3]], coins: [0.12, 0.5], balloons: [[-0.8, 0.12, '#ff4d6d'], [0.82, 0.1, '#06d6a0']] };
+
 camera.position.set(0, 40, 0);
-camera.lookAt(30, 52, -60);
+camera.lookAt(30, 56, -60);
 camera.updateMatrixWorld();
 const at = (nx, ny, dist) => {
   const v = new THREE.Vector3(nx, ny, 0.5).unproject(camera).sub(camera.position).normalize();
@@ -88,57 +91,166 @@ const at = (nx, ny, dist) => {
 sun.target.position.copy(at(0, 0, 60));
 sun.position.copy(sun.target.position).add(new THREE.Vector3(-40, 160, 120));
 
-for (let i = 0; i < 6; i++) ground.update(world.terrain, -120, 420, true);
+for (let i = 0; i < 8; i++) ground.update(world.terrain, -120, 420, true);
 farm.update({ tier: 4, pull: 0.1, t: 0.4, cheer: -1, visible: true });
 sky.update(camera.position, 60, 160, 90, scene.fog);
 sky.moon.visible = false;
 
+// ---------- the pig: colorful gear, rocket firing, facing the viewer ----------
 const pigPos = at(L.pig[0], L.pig[1], L.pigDist);
 pig.root.position.copy(pigPos);
 pig.root.lookAt(camera.position);
-pig.root.rotateY(-Math.PI / 2 - 0.55);
-pig.root.rotateZ(0.5);
-pig.root.scale.setScalar(2.6);
-pig.update({ skin: skinById('pink'), tiers: { wings: 6, rocket: 5, helmet: 2 }, face: 'determined', boosting: true, t: 0.3, squash: 0, flap: 0.4 });
+pig.root.rotateY(-Math.PI / 2 - 0.6);
+pig.root.rotateZ(0.42);
+pig.root.scale.setScalar(L.pigScale);
+pig.update({ skin: skinById('pink'), tiers: { wings: 0, rocket: 3, helmet: 0 }, face: 'happy', boosting: true, t: 0.35, squash: 0, flap: 0.5 });
+pig.root.traverse((o) => { if (o.isGroup && o.children.length === 1 && o.children[0].isMesh && Math.abs(o.position.z) > 0.5 && Math.abs(o.position.z) < 0.6) o.visible = false; });
 addOutlines(pig.root, (o) => !o.material.transparent && !o.material.isMeshBasicMaterial);
 
-// Exhaust trail sweeping in from the bottom-left.
-const tail = at(L.trailTo[0], L.trailTo[1], L.pigDist * 1.3);
-for (let i = 1; i < 30; i++) {
-  const k = i / 30;
-  const p = pigPos.clone().lerp(tail, k);
-  p.y -= Math.sin(k * Math.PI) * 3;
-  const puff = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshToonMaterial({ color: i < 3 ? '#ffd166' : '#ffffff', transparent: true, opacity: 1 - k * 0.6 }));
-  puff.position.copy(p);
-  puff.scale.setScalar(0.6 + k * 2.2);
-  scene.add(puff);
+// Big white feathered wings, same drawing as the logo's wings.
+async function wingTexture() {
+  const img = new Image();
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 58" width="720" height="580">${WING_SVG}</svg>`);
+  await img.decode();
+  const c = document.createElement('canvas');
+  c.width = 720; c.height = 580;
+  c.getContext('2d').drawImage(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const wingTex = await wingTexture();
+// Wings face the camera, one each side of the pig's back, tips up and out.
+{
+  const camRight = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+  const camUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+  const back = camera.position.clone().sub(pigPos).normalize();
+  for (const side of [-1, 1]) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 58 / 72), new THREE.MeshBasicMaterial({ map: wingTex, transparent: true, side: THREE.DoubleSide, alphaTest: 0.05 }));
+    m.position.copy(pigPos)
+      .addScaledVector(camRight, side * L.pigScale * 1.65)
+      .addScaledVector(camUp, L.pigScale * 1.15)
+      .addScaledVector(back, -L.pigScale * 0.9);
+    m.lookAt(m.position.clone().add(back));
+    m.rotateZ(side * -0.28);
+    m.scale.set(L.pigScale * 2.15 * (side > 0 ? -1 : 1), L.pigScale * 2.15, 1);
+    scene.add(m);
+  }
 }
 
-// Coins arcing ahead, balloons and geese scattered in screen space.
+const toCam = camera.position.clone().sub(pigPos).normalize();
+
+// Sun-ray burst behind the pig.
+function raysTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const g = c.getContext('2d');
+  g.translate(256, 256);
+  for (let i = 0; i < 18; i++) {
+    g.rotate((Math.PI * 2) / 18);
+    const grad = g.createLinearGradient(0, 0, 256, 0);
+    grad.addColorStop(0, 'rgba(255,255,255,0.55)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad;
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(256, -34); g.lineTo(256, 34); g.closePath(); g.fill();
+  }
+  const r = g.createRadialGradient(0, 0, 0, 0, 0, 256);
+  r.addColorStop(0, 'rgba(255,250,220,0.7)');
+  r.addColorStop(0.35, 'rgba(255,250,220,0.15)');
+  r.addColorStop(1, 'rgba(255,250,220,0)');
+  g.fillStyle = r;
+  g.fillRect(-256, -256, 512, 512);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const rays = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: raysTexture(), transparent: true, depthWrite: false, fog: false }));
+rays.position.copy(pigPos).addScaledVector(toCam, -14);
+rays.lookAt(camera.position);
+rays.rotateZ(0.2);
+rays.scale.setScalar(L.pigScale * 20);
+scene.add(rays);
+
+// Speed streaks around the pig.
+for (let i = 0; i < 9; i++) {
+  const s = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1, 2, 6), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.45, fog: false }));
+  const a = hash01(i, 21) * Math.PI * 2;
+  s.position.copy(pigPos).add(new THREE.Vector3(Math.cos(a) * L.pigScale * 4.5 - L.pigScale * 2, Math.sin(a) * L.pigScale * 3.5, -4));
+  s.scale.set(L.pigScale * 0.07, L.pigScale * (1.5 + hash01(i, 22) * 2), L.pigScale * 0.07);
+  s.rotation.z = Math.PI / 2 + 0.55;
+  scene.add(s);
+}
+
+// Coins arcing from the pig toward the Moon, a couple of balloons, puffy clouds.
 const objs = [];
-const put = (id, type, nx, ny, dist, extra) => { const p = at(nx, ny, dist); objs.push({ id, type, x: p.x, y: p.y, ...extra, z: p.z }); };
-for (let i = 0; i < 8; i++) put(`c${i}`, 'coin', L.pig[0] + 0.18 + i * 0.075, L.pig[1] + 0.1 + Math.sin(i * 0.45) * 0.12, L.pigDist + i * 1.5, { r: 1.1, value: 1 });
-[['#ff4d6d', -0.72, 0.5, 70], ['#ffb703', 0.82, -0.45, 55], ['#3a86ff', 0.7, -0.62, 62], ['#06d6a0', 0.1, -0.7, 48]].forEach(([color, nx, ny, d], i) => put(`b${i}`, 'balloon', nx, ny, d, { r: 2.6, color }));
-for (let i = 0; i < 5; i++) put(`g${i}`, 'goose', -0.05 + Math.ceil(i / 2) * 0.05, 0.62 + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.04, 90, { r: 1.6, phase: i });
+const put = (id, type, nx, ny, dist, extra) => { const pp = at(nx, ny, dist); objs.push({ id, type, x: pp.x, y: pp.y, ...extra, z: pp.z }); };
+for (let i = 0; i < 7; i++) {
+  const k = i / 6;
+  put(`c${i}`, 'coin', L.pig[0] + L.coins[0] + k * (L.moon[0] - L.pig[0] - L.coins[0]) * 0.7, L.pig[1] + L.coins[1] * (0.35 + 0.65 * Math.sin(k * Math.PI * 0.6)) * 0.9 + k * 0.1, L.pigDist + 2 + i * 1.2, { r: 1.2, value: 1 });
+}
+L.balloons.forEach(([nx, ny, color], i) => put(`b${i}`, 'balloon', nx, ny, 70, { r: 2.2, color }));
 objects.update(objs, 0.7, { taken: null, hasRocket: true, carrying: null });
 scene.traverse((o) => { if (o.userData && o.userData.type && objs.length) { const src = objs.find((x) => Math.abs(x.x - o.position.x) < 0.01 && Math.abs(x.y - o.position.y) < 3); if (src) o.position.z = src.z; } });
 
-// Big glowing Moon: the goal.
+function cloud(nx, ny, dist, size, seed) {
+  const b = new Builder();
+  for (let i = 0; i < 7; i++) {
+    const x = (i - 3) * 0.5 + (hash01(seed, i) - 0.5) * 0.3;
+    const r = 0.5 + hash01(seed, i, 2) * 0.35 - Math.abs(x) * 0.12;
+    b.add(G.ico(2), '#ffffff', mat(x, r * 0.4, (hash01(seed, i, 3) - 0.5) * 0.4, 0, 0, 0, [r, r * 0.9, r * 0.8]), { flat: false });
+  }
+  const m = b.mesh({ shadow: false });
+  m.position.copy(at(nx, ny, dist));
+  m.scale.setScalar(size);
+  m.lookAt(camera.position);
+  scene.add(m);
+}
+if (wide) { cloud(0.2, -0.82, 110, 7, 1); cloud(-0.92, 0.35, 140, 9, 2); cloud(0.95, -0.7, 100, 7, 3); }
+else { cloud(-0.88, 0.0, 110, 6, 1); cloud(0.9, -0.12, 100, 6, 2); cloud(0.05, -0.3, 150, 10, 3); }
+
+// ---------- the Moon: the goal ----------
 const moonPos = at(L.moon[0], L.moon[1], 900);
-const moon = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 4), new THREE.MeshBasicMaterial({ color: '#f3eedd', fog: false }));
+function moonTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const g = c.getContext('2d');
+  const body = g.createRadialGradient(200, 190, 40, 256, 256, 250);
+  body.addColorStop(0, '#fffef6');
+  body.addColorStop(1, '#e9e1c8');
+  g.fillStyle = body;
+  g.beginPath(); g.arc(256, 256, 248, 0, Math.PI * 2); g.fill();
+  for (const [x, y, r] of [[170, 190, 54], [320, 290, 72], [230, 370, 38], [360, 150, 30], [120, 320, 26], [300, 420, 22]]) {
+    g.fillStyle = '#d9d0b4';
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#cfc5a7';
+    g.beginPath(); g.arc(x + r * 0.12, y + r * 0.12, r * 0.78, 0, Math.PI * 2); g.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const moon = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ map: moonTexture(), transparent: true, fog: false }));
 moon.position.copy(moonPos);
-moon.scale.setScalar(wide ? 120 : 110);
+moon.scale.setScalar(L.moonSize);
 moon.lookAt(camera.position);
 scene.add(moon);
-for (const [dx, dy, r] of [[-0.3, 0.25, 0.22], [0.25, -0.1, 0.3], [-0.1, -0.45, 0.16], [0.4, 0.4, 0.12]]) {
-  const cr = new THREE.Mesh(new THREE.CircleGeometry(1, 24), new THREE.MeshBasicMaterial({ color: '#d9d2be', fog: false }));
-  cr.position.set(dx, dy, 1.01);
-  cr.scale.setScalar(r);
-  moon.add(cr);
+function glowTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  const r = g.createRadialGradient(128, 128, 60, 128, 128, 128);
+  r.addColorStop(0, 'rgba(255,248,210,0.65)');
+  r.addColorStop(1, 'rgba(255,248,210,0)');
+  g.fillStyle = r;
+  g.fillRect(0, 0, 256, 256);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
-const halo = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), glow('#fff8d0', 0.22, true));
-halo.position.copy(moonPos);
-halo.scale.setScalar(moon.scale.x * 1.3);
+const halo = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: glowTexture(), transparent: true, depthWrite: false, fog: false }));
+halo.position.copy(moonPos).addScaledVector(camera.position.clone().sub(moonPos).normalize(), -5);
+halo.lookAt(camera.position);
+halo.scale.setScalar(L.moonSize * 3.4);
 scene.add(halo);
 
 await document.fonts.ready;

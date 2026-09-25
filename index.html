@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>When Pigs Fly</title>
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/logo.css" />
   <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
   <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
 </head>
@@ -56,7 +57,7 @@
   <!-- Launch screen -->
   <div id="ready" class="overlay ready hidden">
     <div class="ready-top">
-      <h1 class="logo"><span class="w1">When</span> <span class="w2">Pigs</span> <span class="w3">Fly</span></h1>
+      <h1 class="logo" aria-label="When Pigs Fly"><span class="wpf-logo flap" id="game-logo"></span></h1>
       <p class="tagline" id="ready-tag">yeet Pip to the Moon. no cap.</p>
       <div class="ready-stats">
         <div><small>Personal best</small><b id="ready-best">0 m</b></div>
