@@ -294,6 +294,13 @@ body.six-on .hint { opacity: 0; }
 .tap { font-family: var(--display); font-size: 26px; letter-spacing: 1px; color: #fff; -webkit-text-stroke: 4px var(--ink); paint-order: stroke fill; text-align: center; }
 .pulse { animation: pulse 0.8s ease-in-out infinite; }
 
+/* first visit: nothing but the goal and a huge tap prompt */
+.tap-hand { display: none; }
+.ready.first .ready-stats, .ready.first .ready-side, .ready.first .missions, .ready.first .goal-hint { display: none; }
+.ready.first .tap { font-size: clamp(32px, 5.4vw, 48px); -webkit-text-stroke: 6px var(--ink); color: var(--yel); }
+.ready.first .tap-hand { display: block; position: absolute; bottom: 100%; left: 50%; font-size: 64px; filter: drop-shadow(3px 4px 0 var(--ink)); animation: tap-hand 0.9s ease-in-out infinite; }
+@keyframes tap-hand { 0%, 100% { transform: translate(-50%, -30px) rotate(-8deg); } 45% { transform: translate(-50%, 4px) rotate(-8deg) scale(0.9); } }
+
 /* results */
 .cause { margin: -2px 0 2px; text-align: center; font-size: 16px; color: var(--muted); }
 .lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }

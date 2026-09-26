@@ -51,6 +51,7 @@ const S = {
 // CrazyGames Basic Launch does not allow ads: keep this false until the game is
 // moved to Full Launch, then set it to true (or test with ?debug&ads).
 const ADS_ENABLED = false;
+const FIRST_AUTOLAUNCH_S = 7;
 const canAds = () => (ADS_ENABLED && Sdk.available) || (DEBUG && PARAMS.has('ads'));
 const hasRocket = () => (save.upgrades.rocket || 0) > 0;
 
@@ -107,10 +108,13 @@ function newReady() {
   ui.hud(false);
   ui.touch(false);
   ui.hint(null);
+  S.readyT = 0;
   ui.ready(save, { golden: S.golden, goldenOffer: canAds() && hasRocket() && save.flights >= 2 });
-  ui.tapText(save.flights === 0 ? 'Tap / SPACE in the green. dont be mid' : 'Tap / SPACE to YEET');
+  ui.tapText(save.flights === 0 ? 'TAP ANYWHERE TO LAUNCH!' : 'Tap / SPACE to YEET');
   input.setRocket(hasRocket());
   maybeShowDaily();
+  // The launch screen is playable (timing the power meter), so it counts as gameplay.
+  Sdk.gameplayStart();
 }
 
 // Daily chest: offered on the launch screen once per day, from the second visit on.
@@ -173,6 +177,14 @@ function launch() {
   if (save.flights === 0) setTimeout(() => ui.banner('FLY TO THE MOON!', 'your goal', 2200), 1300);
   if (!save.tips.includes('launch')) persist(markTip(save, 'launch'));
   Sdk.gameplayStart();
+}
+
+// Brand-new players who don't tap get launched anyway, so they see a flight
+// instead of staring at the menu. Only on the very first flight.
+function autoLaunchFirst(realDt) {
+  if (save.flights > 0 || S.adBusy || S.modal || !ui.readyVisible()) return;
+  S.readyT += realDt;
+  if (S.readyT >= FIRST_AUTOLAUNCH_S) launch();
 }
 
 function setHint(kind, text, seconds) {
@@ -357,6 +369,7 @@ function showResults() {
 
 function openBarn(from) {
   S.backTo = from;
+  Sdk.gameplayStop();
   ui.panels.barn(save);
   ui.show('barn');
 }
@@ -368,6 +381,7 @@ function closeBarn() {
   } else {
     ui.ready(save, { golden: S.golden, goldenOffer: canAds() && hasRocket() && save.flights >= 2 });
     input.setRocket(hasRocket());
+    Sdk.gameplayStart();
   }
 }
 
@@ -410,6 +424,7 @@ const ui = createUI({
   onBarn() { audio.click(); openBarn(S.mode === 'results' ? 'results' : 'ready'); },
   onRecords() {
     audio.click();
+    Sdk.gameplayStop();
     ui.panels.records(save, S.username);
     ui.show('records');
   },
@@ -522,6 +537,7 @@ function tick(realDt) {
     const v = needleAt(S.meterT, meterPeriod(save.flights));
     ui.needle(v);
     S.pull = 0.2 + v * 0.8;
+    autoLaunchFirst(realDt);
   } else if (S.mode === 'flying') {
     stepFlightFrame(dt);
   } else if (S.mode === 'landed') {

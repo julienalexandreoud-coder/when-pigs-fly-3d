@@ -119,8 +119,11 @@ export function createUI(handlers) {
       this.badge(affordableCount(save));
       el.golden.classList.toggle('hidden', !goldenOffer || golden);
       el.goldenOn.classList.toggle('hidden', !golden);
+      // First visit: strip the menu down to the pig, the goal and one big "tap".
+      $('ready').classList.toggle('first', save.flights === 0);
       show('ready');
     },
+    readyVisible() { return !$('ready').classList.contains('hidden'); },
     badge(n) {
       for (const b of [el.barnBadge, el.barnBadge2]) {
         b.textContent = String(n);
