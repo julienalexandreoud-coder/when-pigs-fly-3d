@@ -1,14 +1,15 @@
 // One-touch controls.
-// HOLD anywhere (mouse, finger, SPACE, ↑, W) = nose up; let go = glide down.
+// HOLD anywhere (mouse, finger, ↑, W) = nose up; let go = glide down.
 // A fresh press also arms the "flare" bounce when the pig is about to land.
-// Keyboard: ↑ / W / ← / A / SPACE = nose up, ↓ / S / → / D = dive.
-// BOOST: the on-screen rocket button, SHIFT, X or J.
+// Keyboard: ↑ / W / ← / A = nose up, ↓ / S / → / D = dive.
+// BOOST: the on-screen rocket button, SPACE, SHIFT, X or J.
+// SPACE and Enter still launch from the launch screen.
 // Esc / P pause.
 
-const UP = new Set(['Space', 'Enter', 'ArrowUp', 'KeyW', 'ArrowLeft', 'KeyA']);
+const UP = new Set(['Enter', 'ArrowUp', 'KeyW', 'ArrowLeft', 'KeyA']);
 const DOWN = new Set(['ArrowDown', 'KeyS', 'ArrowRight', 'KeyD']);
-const BOOST = new Set(['ShiftLeft', 'ShiftRight', 'KeyX', 'KeyJ']);
-export const LAUNCH_KEYS = new Set([...UP, ...DOWN]);
+const BOOST = new Set(['Space', 'ShiftLeft', 'ShiftRight', 'KeyX', 'KeyJ']);
+export const LAUNCH_KEYS = new Set([...UP, ...DOWN, 'Space']);
 const BLOCK = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space', 'PageUp', 'PageDown']);
 
 export function createInput(canvas, { onAction, onPause, isTyping }) {

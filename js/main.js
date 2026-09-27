@@ -212,7 +212,7 @@ function updateHints() {
   if (!S.hintKind) {
     if (coach.active) return;
     if (hasRocket() && !save.tips.includes('boost') && f.t > 0.3) {
-      setHint('boost', touch ? 'Hold the 🚀 BOOST button!' : 'Hold SHIFT to BOOST!', 4);
+      setHint('boost', touch ? 'Hold the 🚀 BOOST button!' : 'Hold SPACE to BOOST!', 4);
     } else if (!save.tips.includes('skip') && canSkip(f) && f.y > 60) {
       setHint('skip', 'Tap Skip ⏩ to land right away', 3);
     }
