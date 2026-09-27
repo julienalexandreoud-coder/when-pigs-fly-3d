@@ -176,13 +176,22 @@ body.touch-ui .boost-btn .key { display: none; }
 .combo b { font-family: var(--display); font-weight: 400; font-size: 30px; color: var(--yel); line-height: 1; }
 .combo.pop { animation: bump 0.3s; }
 
-/* always-visible control legend during the first flights */
+/* always-visible control legend during every flight */
 .controls {
   position: fixed; left: 50%; bottom: max(64px, calc(env(safe-area-inset-bottom) + 58px)); transform: translateX(-50%); z-index: 6; pointer-events: none;
   display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: max-content; max-width: 94vw;
 }
 .controls span { background: rgba(20,16,20,0.78); color: #fff; font-size: 14px; padding: 5px 10px 3px; border-radius: 8px; white-space: nowrap; }
 .controls span b { color: var(--lime); font-weight: 400; font-family: var(--display); letter-spacing: 1px; font-size: 16px; }
+.controls kbd, .how kbd {
+  display: inline-block; min-width: 22px; margin: 0 2px; padding: 1px 5px 0; text-align: center;
+  font-family: 'Arial Black', Arial, sans-serif; font-weight: 900; font-size: 12px; line-height: 1.5;
+  color: var(--ink); background: var(--lime); border: 2px solid var(--ink); border-radius: 5px; box-shadow: 0 2px 0 var(--ink);
+}
+/* the same legend inside the pause card */
+.how { display: flex; flex-direction: column; gap: 6px; }
+.how span { background: rgba(20,16,20,0.85); color: #fff; font-size: 15px; padding: 6px 10px 4px; border-radius: 8px; }
+.how span b { color: var(--lime); font-weight: 400; font-family: var(--display); letter-spacing: 1px; font-size: 16px; }
 
 /* coach: big slow-motion instruction for new players */
 .coach {
@@ -197,6 +206,8 @@ body.touch-ui .boost-btn .key { display: none; }
 .coach-hand { font-size: 64px; filter: drop-shadow(3px 4px 0 var(--ink)); animation: coach-tap 0.9s ease-in-out infinite; }
 @keyframes coach-tap { 0%, 100% { transform: translateY(-18px) rotate(-8deg); } 45% { transform: translateY(6px) rotate(-8deg) scale(0.9); } }
 .coach.release .coach-hand { animation: none; opacity: 0.35; }
+/* the pause card shows the controls itself, so nothing floats over it */
+body.paused-ui .coach, body.paused-ui .controls, body.paused-ui.coaching::after { display: none !important; }
 body.coaching::after { content: ''; position: fixed; inset: 0; z-index: 11; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(20,16,20,0.45) 100%); }
 
 .hint {
@@ -357,6 +368,21 @@ body.six-on .hint { opacity: 0; }
 .actions { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
 .row { display: flex; gap: 12px; }
 .row .btn { flex: 1; }
+/* Big "Yeet again": hot pink, pulsing, pinned to the bottom of scrolling cards. */
+.btn.yeet {
+  flex: 1.6; background: var(--hot); color: #fff; font-size: 32px; min-height: 64px;
+  -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; box-shadow: var(--pop-big);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1;
+  animation: pulse 1s ease-in-out infinite;
+}
+.btn.yeet:hover { animation: none; transform: rotate(1deg) scale(1.06); }
+.btn.yeet .key { font-family: var(--font); font-size: 12px; letter-spacing: 1px; -webkit-text-stroke: 0; opacity: 0.9; margin-top: 3px; }
+body.touch-ui .btn.yeet .key { display: none; }
+.row.foot {
+  position: sticky; bottom: -18px; z-index: 2; align-items: stretch;
+  margin: 4px -18px -18px; padding: 12px 18px 16px;
+  background: var(--paper); border-top: 3px dashed rgba(20,16,20,0.25);
+}
 
 /* barn */
 .tabs { display: flex; gap: 10px; }

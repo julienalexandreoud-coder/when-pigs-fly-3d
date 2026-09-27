@@ -54,7 +54,6 @@ const S = {
 // moved to Full Launch, then set it to true (or test with ?debug&ads).
 const ADS_ENABLED = false;
 const FIRST_AUTOLAUNCH_S = 7;
-const LEGEND_FLIGHTS = 3;
 const END_PAUSE = 0.9;
 const RESULTS_KEY_DELAY = 600;
 const canAds = () => (ADS_ENABLED && Sdk.available) || (DEBUG && PARAMS.has('ads'));
@@ -197,7 +196,7 @@ function autoLaunchFirst(realDt) {
 }
 
 function showFlightControls() {
-  ui.controls(true, { rocket: hasRocket(), touch: input.usedTouch, legend: save.flights < LEGEND_FLIGHTS });
+  ui.controls(true, { rocket: hasRocket(), touch: input.usedTouch });
 }
 
 function setHint(kind, text, seconds) {
@@ -391,8 +390,25 @@ function showResults() {
   }
 }
 
+// Shop and records carry their own "Yeet again": straight into a new flight
+// from the results, or back to the launch screen when opened from there.
+function setYeetLabels() {
+  const text = S.mode === 'results' ? 'Yeet again' : 'Go yeet!';
+  for (const id of ['btn-barn-yeet', 'btn-records-yeet']) document.getElementById(id).textContent = text;
+}
+
+async function yeetAgain() {
+  audio.click();
+  if (canAds() && Sdk.shouldShowMidgame(save.flights)) {
+    Sdk.markMidgame();
+    await showAd('midgame');
+  }
+  newReady();
+}
+
 function openBarn(from) {
   S.backTo = from;
+  setYeetLabels();
   Sdk.gameplayStop();
   ui.panels.barn(save);
   ui.show('barn');
@@ -447,12 +463,18 @@ const ui = createUI({
   onBarn() { audio.click(); openBarn(S.mode === 'results' ? 'results' : 'ready'); },
   onRecords() {
     audio.click();
+    S.backTo = 'ready';
+    setYeetLabels();
     Sdk.gameplayStop();
     ui.panels.records(save, S.username);
     ui.show('records');
   },
   onCloseRecords() { audio.click(); closeBarn(); },
   onCloseBarn() { audio.click(); closeBarn(); },
+  onYeet() {
+    if (S.mode === 'results') yeetAgain();
+    else { audio.click(); closeBarn(); }
+  },
   onTab() { audio.click(); ui.panels.barn(save); },
   onBuyUpgrade(id) {
     const r = buyUpgrade(save, id);
@@ -498,14 +520,7 @@ const ui = createUI({
     showFlightControls();
     Sdk.gameplayStart();
   },
-  async onAgain() {
-    audio.click();
-    if (canAds() && Sdk.shouldShowMidgame(save.flights)) {
-      Sdk.markMidgame();
-      await showAd('midgame');
-    }
-    newReady();
-  },
+  onAgain: yeetAgain,
   onResume: resume,
   onQuit() {
     if (S.mode !== 'paused') return;

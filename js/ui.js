@@ -42,6 +42,8 @@ export function createUI(handlers) {
   on('btn-quit', handlers.onQuit);
   on('btn-moon-ok', handlers.onMoonOk);
   on('btn-daily', handlers.onDaily);
+  on('btn-barn-yeet', handlers.onYeet);
+  on('btn-records-yeet', handlers.onYeet);
   // Buttons must not leak pointer events to the canvas (that would launch or steer).
   document.querySelectorAll('button').forEach((b) => b.addEventListener('pointerdown', (e) => e.stopPropagation()));
 
@@ -50,6 +52,7 @@ export function createUI(handlers) {
 
   function show(name) {
     for (const s of SCREENS) $(s).classList.toggle('hidden', s !== name);
+    document.body.classList.toggle('paused-ui', name === 'pause');
   }
 
   return {
@@ -58,17 +61,24 @@ export function createUI(handlers) {
     hideAll() { show(null); },
     booted() { el.boot.classList.add('hidden'); },
     hud(visible) { el.hud.classList.toggle('hidden', !visible); },
-    // In-flight controls: boost button (with a rocket) and, for new
-    // players, a legend that says exactly what to press.
-    controls(visible, { rocket = false, touch = false, legend = false } = {}) {
+    // In-flight controls: boost button (with a rocket) and a legend that
+    // always says exactly what to press. The pause screen repeats it.
+    controls(visible, { rocket = false, touch = false } = {}) {
       document.body.classList.toggle('touch-ui', touch);
       el.boostBtn.classList.toggle('hidden', !visible || !rocket);
-      el.controls.classList.toggle('hidden', !visible || !legend);
-      if (visible && legend) {
-        const hold = touch ? 'HOLD screen' : 'HOLD W / ↑ / SPACE / click';
-        const dive = touch ? 'LET GO' : 'LET GO or S / ↓';
-        el.controls.innerHTML = `<span><b>${hold}</b> = fly up</span><span><b>${dive}</b> = dive</span>`
-          + `<span><b>TAP</b> before landing = bounce</span>${rocket ? `<span><b>${touch ? '🚀 button' : 'SHIFT'}</b> = boost</span>` : ''}`;
+      el.controls.classList.toggle('hidden', !visible);
+      if (visible) {
+        const k = (...keys) => keys.map((key) => `<kbd>${key}</kbd>`).join('');
+        const legend = touch
+          ? `<span><b>HOLD screen</b> = fly up</span><span><b>LET GO</b> = dive</span>`
+            + `<span><b>TAP</b> before landing = bounce</span>${rocket ? '<span><b>🚀 button</b> = boost</span>' : ''}`
+          : `<span>HOLD ${k('W', 'A', '↑', '←', 'SPACE')} or click = fly up</span>`
+            + `<span>${k('S', 'D', '↓', '→')} or let go = dive</span>`
+            + `<span><b>TAP</b> just before landing = bounce</span>`
+            + (rocket ? `<span>${k('SHIFT')} = boost</span>` : '')
+            + `<span>${k('ESC')} = pause</span>`;
+        el.controls.innerHTML = legend;
+        $('pause-controls').innerHTML = legend;
       }
       if (!visible) this.combo(1);
     },

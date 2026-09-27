@@ -72,7 +72,7 @@ export function createCoach(ui) {
         if (need.hold && f.t > HOLD_AT && !f.grounded && !f.abduct && f.vy < 8) {
           step = 'hold';
           t = 0;
-          show('HOLD TO FLY UP', touch ? 'keep your finger on the screen' : 'hold W, ↑, SPACE or the mouse button');
+          show('HOLD TO FLY UP', touch ? 'keep your finger on the screen' : 'hold W / A / ↑ / ← / SPACE or the mouse button');
         } else if (flareDue && !need.hold) {
           step = 'flare';
           t = 0;

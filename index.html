@@ -101,9 +101,9 @@
       <div class="actions">
         <button id="btn-double" class="btn ad"><span class="play"></span>Double the coins</button>
         <button id="btn-wind" class="btn ad"><span class="play"></span>Second wind: bounce back up</button>
-        <div class="row">
+        <div class="row foot">
           <button id="btn-barn2" class="btn secondary">Shop<span class="badge hidden" id="barn-badge2">0</span></button>
-          <button id="btn-again" class="btn primary">Yeet again</button>
+          <button id="btn-again" class="btn yeet">Yeet again<small class="key">SPACE</small></button>
         </div>
       </div>
     </div>
@@ -122,7 +122,10 @@
       </div>
       <div id="upgrade-list" class="upgrade-list"></div>
       <div id="skin-grid" class="skin-grid hidden"></div>
-      <button id="btn-close-barn" class="btn primary">Back</button>
+      <div class="row foot">
+        <button id="btn-close-barn" class="btn secondary">Back</button>
+        <button id="btn-barn-yeet" class="btn yeet">Yeet again</button>
+      </div>
     </div>
   </div>
 
@@ -136,7 +139,10 @@
       <div class="best-grid" id="best-grid"></div>
       <h3 class="sub">Medals</h3>
       <div class="medal-grid" id="medal-grid"></div>
-      <button id="btn-close-records" class="btn primary">Back</button>
+      <div class="row foot">
+        <button id="btn-close-records" class="btn secondary">Back</button>
+        <button id="btn-records-yeet" class="btn yeet">Yeet again</button>
+      </div>
     </div>
   </div>
 
@@ -145,6 +151,7 @@
     <div class="card">
       <h2>Paused</h2>
       <p class="cause">go touch grass, we'll wait</p>
+      <div id="pause-controls" class="how"></div>
       <button id="btn-resume" class="btn primary">Back in</button>
       <button id="btn-quit" class="btn secondary">End flight</button>
     </div>
