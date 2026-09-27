@@ -137,7 +137,7 @@ body.muted .icon .wave { display: none; }
 .coin-pill.bump { animation: bump 0.25s; }
 @keyframes bump { 50% { transform: scale(1.25) rotate(-6deg); } }
 
-.moonbar { position: absolute; right: 14px; top: 68px; bottom: 92px; width: 28px; display: flex; flex-direction: column; align-items: center; }
+.moonbar { position: absolute; right: 14px; top: 68px; bottom: 150px; width: 28px; display: flex; flex-direction: column; align-items: center; }
 .moon-cap { width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle at 60% 40%, #fffbe9 0 30%, #e2dbc0 32%); border: 3px solid var(--ink); flex: none; box-shadow: 2px 2px 0 var(--ink); }
 .moonbar .track { position: relative; flex: 1; width: 14px; margin-top: 5px; border-radius: 8px; background: repeating-linear-gradient(0deg, rgba(255,255,255,0.5) 0 8px, rgba(255,255,255,0.2) 8px 16px); border: 3px solid var(--ink); }
 .moonbar .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; border-radius: 6px; background: linear-gradient(var(--hot), var(--yel)); }
@@ -153,17 +153,51 @@ body.muted .icon .wave { display: none; }
 .fuel.low .fuel-fill { animation: blink 0.3s steps(2) infinite; }
 @keyframes blink { 50% { opacity: 0.3; } }
 
-/* touch zones (only on touch devices, shown by JS) */
-.touch { position: fixed; inset: 0; pointer-events: none; z-index: 4; }
-.tz { position: absolute; display: grid; place-items: center; }
-.tz span { width: 66px; height: 66px; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,0.3); border: 3px solid rgba(20,16,20,0.5); color: #fff; font-family: var(--display); font-size: 26px; -webkit-text-stroke: 1.5px var(--ink); paint-order: stroke fill; }
-.tz.up { left: 0; top: 0; width: 55%; height: 50%; }
-.tz.down { left: 0; bottom: 0; width: 55%; height: 50%; }
-.tz.boost { right: 0; top: 0; width: 45%; height: 100%; }
-.tz.boost span { width: 100px; height: 100px; font-size: 22px; background: rgba(255,122,26,0.45); }
-.touch.no-rocket .tz.boost { display: none; }
-.touch.no-rocket .tz.up, .touch.no-rocket .tz.down { width: 100%; }
-.touch.faded .tz span { opacity: 0.35; }
+/* boost button (touch + mouse); hidden until the rocket is bought */
+.boost-btn {
+  position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(22px, env(safe-area-inset-bottom)); z-index: 6;
+  width: 104px; height: 104px; border-radius: 50%; border: 4px solid var(--ink); background: radial-gradient(circle at 40% 35%, #ffc36b, var(--orange) 70%);
+  box-shadow: 5px 6px 0 var(--ink); display: grid; place-items: center; align-content: center; gap: 0; padding: 0; touch-action: none; user-select: none; -webkit-user-select: none;
+  font-family: var(--display); color: #fff; cursor: pointer;
+}
+.boost-btn .flame { font-size: 30px; line-height: 1; }
+.boost-btn b { font-size: 21px; font-weight: 400; letter-spacing: 1px; -webkit-text-stroke: 1.5px var(--ink); paint-order: stroke fill; line-height: 1.05; }
+.boost-btn .key { font-size: 11px; color: var(--ink); opacity: 0.7; letter-spacing: 1px; }
+.boost-btn.on { transform: scale(0.92) translate(3px, 4px); box-shadow: 1px 2px 0 var(--ink); background: radial-gradient(circle at 40% 35%, #fff3b0, #ff9f1c 70%); }
+.boost-btn.empty { filter: grayscale(1) brightness(0.8); }
+body.touch-ui .boost-btn .key { display: none; }
+
+/* coin combo meter */
+.combo {
+  position: fixed; left: max(12px, env(safe-area-inset-left)); top: 76px; z-index: 6; pointer-events: none; text-align: center;
+  background: var(--ink); border-radius: 10px 16px 8px 14px; padding: 4px 12px 2px; transform: rotate(-4deg); box-shadow: 3px 3px 0 var(--hot);
+}
+.combo small { display: block; font-size: 11px; letter-spacing: 1px; color: #fff; }
+.combo b { font-family: var(--display); font-weight: 400; font-size: 30px; color: var(--yel); line-height: 1; }
+.combo.pop { animation: bump 0.3s; }
+
+/* always-visible control legend during the first flights */
+.controls {
+  position: fixed; left: 50%; bottom: max(64px, calc(env(safe-area-inset-bottom) + 58px)); transform: translateX(-50%); z-index: 6; pointer-events: none;
+  display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: max-content; max-width: 94vw;
+}
+.controls span { background: rgba(20,16,20,0.78); color: #fff; font-size: 14px; padding: 5px 10px 3px; border-radius: 8px; white-space: nowrap; }
+.controls span b { color: var(--lime); font-weight: 400; font-family: var(--display); letter-spacing: 1px; font-size: 16px; }
+
+/* coach: big slow-motion instruction for new players */
+.coach {
+  position: fixed; left: 50%; top: 34%; transform: translate(-50%, -50%) rotate(-2deg); z-index: 12; pointer-events: none; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 4px; width: max-content; max-width: 92vw;
+}
+.coach b {
+  font-family: var(--display); font-weight: 400; font-size: clamp(38px, 8vw, 64px); line-height: 1; color: var(--yel);
+  -webkit-text-stroke: 6px var(--ink); paint-order: stroke fill; text-shadow: 4px 5px 0 var(--hot); animation: pulse 0.8s ease-in-out infinite;
+}
+.coach small { background: var(--ink); color: #fff; font-size: 17px; padding: 5px 12px 3px; border-radius: 8px; box-shadow: 3px 3px 0 var(--hot); }
+.coach-hand { font-size: 64px; filter: drop-shadow(3px 4px 0 var(--ink)); animation: coach-tap 0.9s ease-in-out infinite; }
+@keyframes coach-tap { 0%, 100% { transform: translateY(-18px) rotate(-8deg); } 45% { transform: translateY(6px) rotate(-8deg) scale(0.9); } }
+.coach.release .coach-hand { animation: none; opacity: 0.35; }
+body.coaching::after { content: ''; position: fixed; inset: 0; z-index: 11; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(20,16,20,0.45) 100%); }
 
 .hint {
   position: fixed; left: 50%; bottom: 21%; transform: translateX(-50%) rotate(-2deg); z-index: 8; pointer-events: none;
@@ -385,6 +419,14 @@ h3.sub { margin: 6px 0 0; font-family: var(--display); font-size: 26px; font-wei
   .ready-side .btn { font-size: 20px; padding: 8px 12px 6px; min-height: 46px; }
 }
 @media (max-height: 520px) and (orientation: landscape) {
+  .controls { left: max(10px, env(safe-area-inset-left)); bottom: 10px; transform: none; flex-direction: column; align-items: flex-start; gap: 4px; }
+  .controls span { font-size: 12px; padding: 3px 8px 2px; }
+  .controls span b { font-size: 13px; }
+  .hint { bottom: auto; top: 30%; font-size: 17px; }
+  .boost-btn { width: 88px; height: 88px; bottom: 12px; }
+  .moonbar { bottom: 112px; }
+  .coach { top: 42%; }
+  .coach-hand { font-size: 44px; }
   .logo { font-size: 26px; }
   .tagline, .goal-hint { display: none; }
   .missions { top: auto; bottom: 16px; transform: none; }
@@ -404,5 +446,9 @@ h3.sub { margin: 6px 0 0; font-family: var(--display); font-size: 26px; font-wei
   .mission .m-reward { margin: 0; white-space: nowrap; }
   .hud-center .alt { font-size: 38px; }
   .hud-right { top: 66px; right: 50px; }
+  .hud-bottom { left: 14px; transform: none; align-items: flex-start; bottom: max(18px, env(safe-area-inset-bottom)); }
+  .fuel-track { width: min(40vw, 200px); }
+  .controls { bottom: 140px; }
+  .hint { bottom: 30%; font-size: 18px; }
   .moonbar { top: 112px; }
 }

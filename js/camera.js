@@ -24,8 +24,10 @@ export function targetSpan(speed, alt) {
 }
 
 export function updateCamera(cam, W, H, dt, { mode, pig, groundAt }) {
-  // In portrait the span is measured on a shortened long axis for more look-ahead.
-  const long = Math.max(W, H * 0.75);
+  // Portrait phones: measure the span on a shortened long axis and look
+  // further ahead so there is room to see what is coming.
+  const portrait = H > W;
+  const long = portrait ? Math.max(W * 1.2, H * 0.62) : Math.max(W, H * 0.75);
   let tx = READY.x;
   // Portrait: frame the launcher higher so the missions list below does not cover Pip.
   let ty = READY.y - (H > W ? (READY.span * H) / long * 0.14 : 0);
@@ -35,7 +37,7 @@ export function updateCamera(cam, W, H, dt, { mode, pig, groundAt }) {
     span = targetSpan(speed, pig.y);
     const viewW = (span * W) / long;
     const viewH = (span * H) / long;
-    const look = Math.min(1, speed / 60) * 0.28;
+    const look = Math.min(1, speed / 60) * (portrait ? 0.4 : 0.28);
     tx = pig.x + clamp(pig.vx * 0.5, -viewW * look, viewW * look);
     ty = pig.y + clamp(pig.vy * 0.5, -viewH * look, viewH * look);
     // Keep the ground in the lower part of the screen near the surface.

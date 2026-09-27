@@ -78,7 +78,7 @@ export function createPanels(handlers) {
         sfx.done();
       }
       void running;
-    }, 130);
+    }, 85);
   }
 
   function skipCount(total) {

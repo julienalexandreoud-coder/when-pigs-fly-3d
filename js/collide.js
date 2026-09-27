@@ -81,7 +81,29 @@ function startAbduction(f, o) {
   emit(f, 'abduct', { x: o.x, y: o.y });
 }
 
+// Coin combo: pickups less than COMBO_GAP apart build a chain; every
+// COMBO_STEP coins in a row add +0.5x to coin value (max COMBO_MAX).
+export const COMBO_GAP = 1.4;
+const COMBO_STEP = 6;
+const COMBO_MAX = 3;
+export const comboFor = (chain) => Math.min(COMBO_MAX, 1 + Math.floor(chain / COMBO_STEP) * 0.5);
+
+function comboUp(f) {
+  f.coinChain = f.t - f.coinStreakT < COMBO_GAP ? f.coinChain + 1 : 1;
+  f.coinStreakT = f.t;
+  const mult = comboFor(f.coinChain);
+  if (mult > f.comboMult) emit(f, 'combo', { mult, x: f.x, y: f.y });
+  f.comboMult = mult;
+  f.bestCombo = Math.max(f.bestCombo, mult);
+  return mult;
+}
+
 export function collideSky(f, world, dt, scratch) {
+  if (f.comboMult > 1 && f.t - f.coinStreakT >= COMBO_GAP) {
+    f.comboMult = 1;
+    f.coinChain = 0;
+    emit(f, 'comboEnd', {});
+  }
   const pr = PIG_R * scaleAt(f.y);
   const reach = 30 * scaleAt(f.y) + f.stats.magnet * 5;
   scratch.length = 0;
@@ -111,10 +133,11 @@ export function collideSky(f, world, dt, scratch) {
     if (o.type === 'coin') {
       if (d < o.r + pr + f.stats.magnet * S) {
         f.taken.add(o.id);
-        f.coins += o.value;
-        f.coinStreakT = f.t;
+        const mult = comboUp(f);
+        const value = Math.round(o.value * mult);
+        f.coins += value;
         setFace(f, 'happy', 0.4);
-        emit(f, 'coin', { x: o.x, y: o.y, value: o.value, star: o.star });
+        emit(f, 'coin', { x: o.x, y: o.y, value, star: o.star, mult, chain: f.coinChain });
       }
     } else if (o.type === 'fuel') {
       if (d < o.r + pr + 0.6 * S) {

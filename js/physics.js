@@ -10,6 +10,15 @@ import { collideSky, collideGroundFeatures, stepAbduction, emit, setFace } from 
 const TWO_PI = Math.PI * 2;
 const SONIC = 343;
 const GRASS_FRICTION = 4;
+// Flare: tapping just before touching down turns a crash into a bounce.
+export const FLARE_WINDOW = 0.45;
+const FLARE_MIN_SPEED = 7;
+const FLARE_KEEP = 0.88;
+const FLARE_ANGLE = 0.6;
+const HOP_MIN_SPEED = 8;
+// Every full flip kicks the pig forward a little.
+const FLIP_KICK = 7;
+const FLIP_KICK_FRAC = 0.05;
 
 export function createFlight(stats, { power = 1, perfect = false, golden = false } = {}) {
   const speed = stats.launchSpeed * power * (perfect ? PERFECT_BONUS : 1);
@@ -58,6 +67,12 @@ export function createFlight(stats, { power = 1, perfect = false, golden = false
     faceT: 0.8,
     abduct: null,
     coinStreakT: -9,
+    coinChain: 0,
+    comboMult: 1,
+    bestCombo: 1,
+    pressT: -9,
+    upHeld: false,
+    flares: 0,
     taken: new Set(),
     fieldTime: new Map(),
     featureCd: new Map(),
@@ -79,6 +94,9 @@ function countFlips(f, dTheta) {
   if (Math.abs(f.rotAcc) >= TWO_PI) {
     f.rotAcc -= Math.sign(f.rotAcc) * TWO_PI;
     f.flips += 1;
+    const kick = FLIP_KICK + FLIP_KICK_FRAC * Math.hypot(f.vx, f.vy);
+    f.vx += Math.cos(f.angle) * kick;
+    f.vy += Math.sin(f.angle) * kick;
     setFace(f, 'happy', 0.8);
     emit(f, 'flip', { x: f.x, y: f.y, n: f.flips });
   }
@@ -166,6 +184,10 @@ function groundContact(f, terrain) {
   const impact = Math.atan2(-vn, Math.abs(vt));
   const surface = terrain.surface(f.x);
   f.rotAcc = 0;
+  if (flareReady(f) && speed >= FLARE_MIN_SPEED) {
+    flare(f, Math.atan(slope), speed, 'flare');
+    return;
+  }
 
   if (surface === 'mud') {
     f.vx = 0;
@@ -199,6 +221,24 @@ function groundContact(f, terrain) {
   f.vx = along * ny * (skim ? 1 : 0.6);
   f.vy = 0;
   setFace(f, 'splat', 9);
+}
+
+const flareReady = (f) => f.t - f.pressT <= FLARE_WINDOW;
+
+// Perfect bounce off the ground at a fixed climb angle, keeping most speed.
+function flare(f, groundAngle, speed, kind) {
+  const s = speed * FLARE_KEEP;
+  const a = groundAngle + FLARE_ANGLE;
+  f.vx = Math.cos(a) * s;
+  f.vy = Math.sin(a) * s;
+  f.angle = a;
+  f.grounded = false;
+  f.pressT = -9;
+  f.flares += 1;
+  f.bounces += 1;
+  f.y += 0.05;
+  setFace(f, 'happy', 0.9);
+  emit(f, kind, { x: f.x, y: f.y, n: f.flares, speed: s });
 }
 
 function bounce(f, nx, ny, vn, vt, restitution, keepT, kind) {
@@ -236,6 +276,10 @@ function stepGround(f, dt, world) {
   }
   const slope = terrain.slope(f.x);
   const ang = Math.atan(slope);
+  if (flareReady(f) && Math.abs(f.vx) >= HOP_MIN_SPEED) {
+    flare(f, ang, Math.abs(f.vx) * 0.8, 'hop');
+    return;
+  }
   const dir = Math.sign(f.vx);
   f.vx -= dir * GRASS_FRICTION * dt + gravityAt(0) * Math.sin(ang) * Math.cos(ang) * dt;
   if (Math.sign(f.vx) !== dir) f.vx = 0;
@@ -274,6 +318,9 @@ function track(f) {
 export function stepFlight(f, input, dt, world) {
   if (f.done) return;
   f.t += dt;
+  // Only real taps arm a flare (the autopilot never sets `pressed`).
+  if (input.pressed) f.pressT = f.t;
+  f.upHeld = input.pitch > 0;
   f.hitCd = Math.max(0, f.hitCd - dt);
   f.dizzy = Math.max(0, f.dizzy - dt);
   f.faceT -= dt;
@@ -343,6 +390,8 @@ export function summarize(f) {
     surfs: f.surfs,
     abductions: f.abductions,
     bounces: f.bounces,
+    flares: f.flares,
+    bestCombo: f.bestCombo,
     glideDist: f.glideDist,
     fuelCans: f.fuelCans,
     hazards: f.hazards,

@@ -1,28 +1,22 @@
-// Keyboard + pointer controls.
-// Keys: ↑/W/← nose up, ↓/S/→ nose down, Space boost (and launch), Esc/P pause.
-// Touch/mouse: with a rocket the left 55% pitches (top half up, bottom half down)
-// and the right side boosts; without a rocket the whole screen pitches.
+// One-touch controls.
+// HOLD anywhere (mouse, finger, SPACE, ↑, W) = nose up; let go = glide down.
+// A fresh press also arms the "flare" bounce when the pig is about to land.
+// BOOST: the on-screen rocket button, SHIFT, → or D. Dive: ↓ / S (optional).
+// Esc / P pause.
 
-const UP = new Set(['ArrowUp', 'KeyW', 'ArrowLeft', 'KeyA']);
-const DOWN = new Set(['ArrowDown', 'KeyS', 'ArrowRight', 'KeyD']);
-const BOOST = new Set(['Space', 'ShiftLeft', 'ShiftRight', 'KeyX', 'KeyJ']);
+const UP = new Set(['Space', 'ArrowUp', 'KeyW', 'Enter']);
+const DOWN = new Set(['ArrowDown', 'KeyS']);
+const BOOST = new Set(['ShiftLeft', 'ShiftRight', 'ArrowRight', 'KeyD', 'KeyX', 'KeyJ']);
 const BLOCK = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space', 'PageUp', 'PageDown']);
 
 export function createInput(canvas, { onAction, onPause, isTyping }) {
   const keys = new Set();
-  const pointers = new Map();
-  let hasRocket = false;
+  const pointers = new Set();
+  let boostHeld = false;
   let usedTouch = false;
+  let pressed = false;
   let pitched = false;
   let boosted = false;
-
-  function zoneOf(x, y) {
-    const r = canvas.getBoundingClientRect();
-    const w = r.width;
-    const h = r.height;
-    if (hasRocket && x > w * 0.55) return 'boost';
-    return y < h / 2 ? 'up' : 'down';
-  }
 
   window.addEventListener('keydown', (e) => {
     if (isTyping()) return;
@@ -33,55 +27,79 @@ export function createInput(canvas, { onAction, onPause, isTyping }) {
     }
     if (e.repeat) return;
     keys.add(e.code);
+    if (UP.has(e.code)) pressed = true;
     onAction('key', e.code);
   });
   window.addEventListener('keyup', (e) => keys.delete(e.code));
   window.addEventListener('blur', () => {
     keys.clear();
     pointers.clear();
+    boostHeld = false;
   });
 
   canvas.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     if (e.pointerType === 'touch') usedTouch = true;
-    pointers.set(e.pointerId, zoneOf(e.clientX, e.clientY));
+    pointers.add(e.pointerId);
+    pressed = true;
     try { canvas.setPointerCapture(e.pointerId); } catch { /* not supported */ }
     onAction('pointer', e.pointerType);
-  });
-  canvas.addEventListener('pointermove', (e) => {
-    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, zoneOf(e.clientX, e.clientY));
   });
   const release = (e) => pointers.delete(e.pointerId);
   canvas.addEventListener('pointerup', release);
   canvas.addEventListener('pointercancel', release);
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
+  // The boost button is a real element so it never counts as "hold to fly up".
+  function bindBoost(button) {
+    const down = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.pointerType === 'touch') usedTouch = true;
+      boostHeld = true;
+      button.classList.add('on');
+      try { button.setPointerCapture(e.pointerId); } catch { /* not supported */ }
+    };
+    const up = () => {
+      boostHeld = false;
+      button.classList.remove('on');
+    };
+    button.addEventListener('pointerdown', down);
+    button.addEventListener('pointerup', up);
+    button.addEventListener('pointercancel', up);
+    button.addEventListener('lostpointercapture', up);
+    button.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+
   return {
-    setRocket(v) { hasRocket = v; },
+    bindBoost,
     get usedTouch() { return usedTouch; },
-    // { pitch: -1 | 0 | 1, boost: bool }. Positive pitch = nose up.
+    get holding() {
+      if (pointers.size) return true;
+      for (const k of keys) if (UP.has(k)) return true;
+      return false;
+    },
+    // { pitch: -1 | 0 | 1, boost, pressed }. Positive pitch = nose up.
+    // `pressed` is true once per new press (consumed by this call).
     read() {
-      let up = false;
+      let up = pointers.size > 0;
       let down = false;
-      let boost = false;
+      let boost = boostHeld;
       for (const k of keys) {
         if (UP.has(k)) up = true;
         if (DOWN.has(k)) down = true;
         if (BOOST.has(k)) boost = true;
       }
-      for (const z of pointers.values()) {
-        if (z === 'up') up = true;
-        else if (z === 'down') down = true;
-        else boost = true;
-      }
       const pitch = up === down ? 0 : up ? 1 : -1;
       if (pitch) pitched = true;
       if (boost) boosted = true;
-      return { pitch, boost };
+      const p = pressed;
+      pressed = false;
+      return { pitch, boost, pressed: p };
     },
     get pitched() { return pitched; },
     get boosted() { return boosted; },
     resetFlags() { pitched = false; boosted = false; },
-    clear() { keys.clear(); pointers.clear(); },
+    clear() { keys.clear(); pointers.clear(); boostHeld = false; pressed = false; },
   };
 }

@@ -7,7 +7,7 @@ import { KINDS, SLOTS, fillMissions, settleMissions } from './missions.js';
 
 export const SAVE_KEY = 'whenpigsfly.save.v1';
 const MAX_COINS = 1e9;
-const TIPS = ['launch', 'pitch', 'boost', 'skip'];
+const TIPS = ['launch', 'pitch', 'boost', 'skip', 'hold', 'flare'];
 
 const num = (n, max = MAX_COINS) => (Number.isFinite(n) && n >= 0 ? Math.min(n, max) : 0);
 const int = (n, max) => Math.floor(num(n, max));

@@ -7,11 +7,11 @@ export const RATES = Object.freeze({ distance: 0.1, farDistance: 0.025, farFrom:
 
 // Long glides still pay, but less per metre past 2 km so altitude stays the goal.
 export const distanceCoins = (d) => Math.floor(Math.min(d, RATES.farFrom) * RATES.distance + Math.max(0, d - RATES.farFrom) * RATES.farDistance);
-export const TRICKS = Object.freeze({ flip: 8, surf: 15, balloon: 2, abduct: 30, perfect: 5, bounce: 1 });
+export const TRICKS = Object.freeze({ flip: 8, surf: 15, balloon: 2, abduct: 30, perfect: 5, bounce: 1, flare: 4 });
 
 export function trickCoins(s) {
   return s.flips * TRICKS.flip + s.surfs * TRICKS.surf + s.balloons * TRICKS.balloon + s.chainBonus
-    + s.abductions * TRICKS.abduct + (s.perfect ? TRICKS.perfect : 0) + s.bounces * TRICKS.bounce;
+    + s.abductions * TRICKS.abduct + (s.perfect ? TRICKS.perfect : 0) + s.bounces * TRICKS.bounce + (s.flares || 0) * TRICKS.flare;
 }
 
 // Returns the result lines (for the count-up) and the total.
@@ -30,6 +30,7 @@ export function payout(summary, payMult) {
 
 function trickDetail(s) {
   const parts = [];
+  if (s.flares) parts.push(`${s.flares} bounce${s.flares > 1 ? 's' : ''}`);
   if (s.flips) parts.push(`${s.flips} flip${s.flips > 1 ? 's' : ''}`);
   if (s.balloons) parts.push(`${s.balloons} pop${s.balloons > 1 ? 's' : ''}`);
   if (s.surfs) parts.push(`${s.surfs} surf${s.surfs > 1 ? 's' : ''}`);

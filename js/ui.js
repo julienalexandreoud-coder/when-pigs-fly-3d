@@ -14,7 +14,9 @@ export function createUI(handlers) {
     hud: $('hud'), alt: $('hud-alt'), speed: $('hud-speed'), dist: $('hud-dist'), coins: $('hud-coins'),
     coinPill: document.querySelector('.coin-pill'), fuel: $('fuel'), fuelFill: $('fuel-fill'), skip: $('btn-skip'),
     moonFill: $('moon-fill'), moonBest: $('moon-best'), moonPig: $('moon-pig'),
-    needle: $('needle'), tap: $('tap-text'), touch: $('touch'), hint: $('hint'),
+    needle: $('needle'), tap: $('tap-text'), hint: $('hint'),
+    boostBtn: $('btn-boost'), controls: $('controls'), combo: $('combo'), comboX: $('combo-x'),
+    coach: $('coach'), coachTitle: $('coach-title'), coachSub: $('coach-sub'),
     banner: $('banner'), bannerTitle: $('banner-title'), bannerKicker: $('banner-kicker'), toasts: $('toasts'),
     readyBest: $('ready-best'), readyCoins: $('ready-coins'), readyMedal: $('ready-medal'), missions: $('missions'),
     barnBadge: $('barn-badge'), barnBadge2: $('barn-badge2'), golden: $('btn-golden'), goldenOn: $('golden-on'),
@@ -56,10 +58,39 @@ export function createUI(handlers) {
     hideAll() { show(null); },
     booted() { el.boot.classList.add('hidden'); },
     hud(visible) { el.hud.classList.toggle('hidden', !visible); },
-    touch(visible, hasRocket, faded) {
-      el.touch.classList.toggle('hidden', !visible);
-      el.touch.classList.toggle('no-rocket', !hasRocket);
-      el.touch.classList.toggle('faded', Boolean(faded));
+    // In-flight controls: boost button (with a rocket) and, for new
+    // players, a legend that says exactly what to press.
+    controls(visible, { rocket = false, touch = false, legend = false } = {}) {
+      document.body.classList.toggle('touch-ui', touch);
+      el.boostBtn.classList.toggle('hidden', !visible || !rocket);
+      el.controls.classList.toggle('hidden', !visible || !legend);
+      if (visible && legend) {
+        const hold = touch ? 'HOLD screen' : 'HOLD click / SPACE';
+        el.controls.innerHTML = `<span><b>${hold}</b> = fly up</span><span><b>LET GO</b> = dive</span>`
+          + `<span><b>TAP</b> before landing = bounce</span>${rocket ? `<span><b>${touch ? '🚀 button' : 'SHIFT / →'}</b> = boost</span>` : ''}`;
+      }
+      if (!visible) this.combo(1);
+    },
+    boostEmpty(empty) { el.boostBtn.classList.toggle('empty', empty); },
+    combo(mult) {
+      const on = mult > 1;
+      el.combo.classList.toggle('hidden', !on);
+      if (on && el.comboX.textContent !== `x${mult}`) {
+        el.comboX.textContent = `x${mult}`;
+        el.combo.classList.remove('pop');
+        void el.combo.offsetWidth;
+        el.combo.classList.add('pop');
+      }
+    },
+    // Big slow-motion instruction; coach(null) hides it.
+    coach(title, sub = '', { release = false } = {}) {
+      el.coach.classList.toggle('hidden', !title);
+      document.body.classList.toggle('coaching', Boolean(title));
+      if (!title) return;
+      el.banner.classList.remove('show');
+      el.coachTitle.textContent = title;
+      el.coachSub.textContent = sub;
+      el.coach.classList.toggle('release', release);
     },
     setMuted(m) { document.body.classList.toggle('muted', m); },
     adShade(onOff) { el.adShade.classList.toggle('hidden', !onOff); },

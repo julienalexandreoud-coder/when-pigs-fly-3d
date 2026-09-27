@@ -20,6 +20,7 @@ import { createInput } from './input.js';
 import { createUI } from './ui.js';
 import { createJuice } from './juice.js';
 import { botInput } from './bot.js';
+import { createCoach, landingCue } from './coach.js';
 
 const PARAMS = new URLSearchParams(location.search);
 const DEBUG = PARAMS.has('debug');
@@ -46,12 +47,16 @@ const S = {
   squash: 0, golden: false, banked: null, result: null, doubled: false, backTo: 'ready',
   prevBest: 0, recordShown: false, shownMissions: new Set(), hintUntil: 0, hintKind: null,
   username: null, adBusy: false, autoplay: false, endTimer: 0, sixSeven: new Set(), modal: false,
+  coachScale: 1, cue: null, resultsAt: 0, boostEmpty: false,
 };
 
 // CrazyGames Basic Launch does not allow ads: keep this false until the game is
 // moved to Full Launch, then set it to true (or test with ?debug&ads).
 const ADS_ENABLED = false;
 const FIRST_AUTOLAUNCH_S = 7;
+const LEGEND_FLIGHTS = 3;
+const END_PAUSE = 0.9;
+const RESULTS_KEY_DELAY = 600;
 const canAds = () => (ADS_ENABLED && Sdk.available) || (DEBUG && PARAMS.has('ads'));
 const hasRocket = () => (save.upgrades.rocket || 0) > 0;
 
@@ -106,12 +111,14 @@ function newReady() {
   fx.reset();
   snapToReady(S.cam, renderer.view.W, renderer.view.H);
   ui.hud(false);
-  ui.touch(false);
+  ui.controls(false);
+  coach.stop();
+  S.coachScale = 1;
+  S.cue = null;
   ui.hint(null);
   S.readyT = 0;
   ui.ready(save, { golden: S.golden, goldenOffer: canAds() && hasRocket() && save.flights >= 2 });
   ui.tapText(save.flights === 0 ? 'TAP ANYWHERE TO LAUNCH!' : 'Tap / SPACE to YEET');
-  input.setRocket(hasRocket());
   maybeShowDaily();
   // The launch screen is playable (timing the power meter), so it counts as gameplay.
   Sdk.gameplayStart();
@@ -160,8 +167,10 @@ function launch() {
   ui.hideAll();
   ui.resetHud();
   ui.hud(true);
-  const touch = input.usedTouch;
-  ui.touch(touch, hasRocket(), save.flights > 4);
+  showFlightControls();
+  coach.start(save.tips, input.usedTouch);
+  S.boostEmpty = false;
+  ui.boostEmpty(false);
   const big = (stats.tiers.launcher || 0) >= 3;
   audio.launch(big);
   fx.shake(big ? 8 : 3);
@@ -171,10 +180,10 @@ function launch() {
     audio.airhorn();
     fx.flash('255,255,255', 0.35);
     ui.banner('PERFECT!', '+1000 AURA', 1000);
-  } else if (zone === 'weak') {
+  } else if (zone === 'weak' && save.flights > 0) {
     ui.banner('MID LAUNCH', 'tap in the green', 900);
   }
-  if (save.flights === 0) setTimeout(() => ui.banner('FLY TO THE MOON!', 'your goal', 2200), 1300);
+  if (save.flights === 0) ui.banner('FLY TO THE MOON!', 'your goal', 1500);
   if (!save.tips.includes('launch')) persist(markTip(save, 'launch'));
   Sdk.gameplayStart();
 }
@@ -185,6 +194,10 @@ function autoLaunchFirst(realDt) {
   if (save.flights > 0 || S.adBusy || S.modal || !ui.readyVisible()) return;
   S.readyT += realDt;
   if (S.readyT >= FIRST_AUTOLAUNCH_S) launch();
+}
+
+function showFlightControls() {
+  ui.controls(true, { rocket: hasRocket(), touch: input.usedTouch, legend: save.flights < LEGEND_FLIGHTS });
 }
 
 function setHint(kind, text, seconds) {
@@ -198,10 +211,9 @@ function updateHints() {
   const f = S.flight;
   const touch = input.usedTouch;
   if (!S.hintKind) {
-    if (!save.tips.includes('pitch') && f.t > 0.6) {
-      setHint('pitch', touch ? 'Hold the TOP half to lift your nose, the BOTTOM half to dive' : 'Hold ▲ / W to lift your nose, ▼ / S to dive', 4);
-    } else if (hasRocket() && !save.tips.includes('boost') && f.t > 0.3) {
-      setHint('boost', touch ? 'Hold the RIGHT side to BOOST!' : 'Hold SPACE to BOOST!', 4);
+    if (coach.active) return;
+    if (hasRocket() && !save.tips.includes('boost') && f.t > 0.3) {
+      setHint('boost', touch ? 'Hold the 🚀 BOOST button!' : 'Hold SHIFT or → to BOOST!', 4);
     } else if (!save.tips.includes('skip') && canSkip(f) && f.y > 60) {
       setHint('skip', 'Tap Skip ⏩ to land right away', 3);
     }
@@ -211,7 +223,7 @@ function updateHints() {
     if (f.t > S.hintUntil) S.hintKind = null;
     return;
   }
-  const doneEarly = (S.hintKind === 'pitch' && input.pitched) || (S.hintKind === 'boost' && input.boosted);
+  const doneEarly = S.hintKind === 'boost' && input.boosted;
   if (doneEarly || f.t > S.hintUntil || f.done) {
     ui.hint(null);
     S.hintKind = 'shown';
@@ -258,6 +270,10 @@ function liveChecks() {
 function stepFlightFrame(dt) {
   const f = S.flight;
   const inp = S.autoplay ? botInput(f) : input.read();
+  const groundAt = S.world.terrain.height;
+  const c = coach.update(f, inp, !S.autoplay && input.holding, S.realDt, groundAt);
+  S.coachScale = c.scale;
+  for (const tip of c.done) persist(markTip(save, tip));
   const descending = f.vy < 0 && f.fuel <= 0 && !f.grounded;
   const warp = descending && f.y > 200 ? Math.min(4, 1 + (f.y - 200) / 400) : 1;
   let acc = dt * warp;
@@ -293,6 +309,9 @@ function stepFlightFrame(dt) {
     alt: f.y, speed: Math.hypot(f.vx, f.vy), dist: Math.max(0, f.x), coins: f.coins, fuel: f.fuel, fuelMax: f.fuelMax,
     best: Math.max(save.best.alt, S.prevBest), canSkip: canSkip(f) && f.y > 60 && !S.autoplay,
   });
+  S.cue = coach.active ? null : landingCue(f, groundAt);
+  const empty = f.fuelMax > 0 && f.fuel <= 0;
+  if (empty !== S.boostEmpty) { S.boostEmpty = empty; ui.boostEmpty(empty); }
   updateHints();
   liveChecks();
   if (f.done) flightOver();
@@ -301,7 +320,11 @@ function stepFlightFrame(dt) {
 function flightOver() {
   const f = S.flight;
   S.mode = 'landed';
-  S.endTimer = f.moon ? 1.0 : 1.3;
+  S.endTimer = f.moon ? 1.0 : END_PAUSE;
+  S.cue = null;
+  S.coachScale = 1;
+  coach.stop();
+  ui.controls(false);
   ui.hint(null);
   audio.silence();
   Sdk.gameplayStop();
@@ -354,8 +377,9 @@ function resultsView() {
 
 function showResults() {
   S.mode = 'results';
+  S.resultsAt = performance.now();
   ui.hud(false);
-  ui.touch(false);
+  ui.controls(false);
   ui.panels.results(resultsView(), { tick: (i) => audio.tick(i), done: () => audio.buy() });
   ui.show('results');
   ui.badge(affordableCount(save));
@@ -380,7 +404,6 @@ function closeBarn() {
     ui.badge(affordableCount(save));
   } else {
     ui.ready(save, { golden: S.golden, goldenOffer: canAds() && hasRocket() && save.flights >= 2 });
-    input.setRocket(hasRocket());
     Sdk.gameplayStart();
   }
 }
@@ -472,7 +495,7 @@ const ui = createUI({
     S.mode = 'flying';
     ui.hideAll();
     ui.hud(true);
-    ui.touch(input.usedTouch, hasRocket(), save.flights > 4);
+    showFlightControls();
     Sdk.gameplayStart();
   },
   async onAgain() {
@@ -501,6 +524,9 @@ const input = createInput(canvas, {
     if (S.mode === 'ready' && !S.adBusy && !S.modal) {
       if (kind === 'key' && code !== 'Space' && code !== 'Enter' && code !== 'ArrowUp' && code !== 'KeyW') return;
       launch();
+    } else if (S.mode === 'results' && kind === 'key' && (code === 'Space' || code === 'Enter')
+      && performance.now() - S.resultsAt > RESULTS_KEY_DELAY && !document.getElementById('results').classList.contains('hidden')) {
+      document.getElementById('btn-again').click();
     }
   },
   onPause() {
@@ -511,6 +537,8 @@ const input = createInput(canvas, {
 });
 
 const juice = createJuice({ fx, audio, ui });
+const coach = createCoach(ui);
+input.bindBoost(document.getElementById('btn-boost'));
 
 window.addEventListener('pointerdown', () => { audio.unlock(); audio.startMusic(); }, { once: true, capture: true });
 window.addEventListener('keydown', () => { audio.unlock(); audio.startMusic(); }, { once: true, capture: true });
@@ -526,7 +554,8 @@ window.addEventListener('resize', () => renderer.resize());
 // ---------- loop ----------
 let last = performance.now();
 function tick(realDt) {
-  const dt = realDt * fx.timeScale();
+  S.realDt = realDt;
+  const dt = realDt * fx.timeScale() * (S.mode === 'flying' ? S.coachScale : 1);
   if (S.mode !== 'paused') S.t += dt;
   S.squash *= Math.max(0, 1 - dt * 8);
   S.launchKick = Math.max(0, S.launchKick - dt * 3);
@@ -546,7 +575,6 @@ function tick(realDt) {
       if (S.flight.moon) {
         S.mode = 'moon';
         ui.hud(false);
-        ui.touch(false);
         ui.show('moonwin');
       } else {
         showResults();

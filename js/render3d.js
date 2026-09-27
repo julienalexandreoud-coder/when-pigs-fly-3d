@@ -21,9 +21,13 @@ const YAW_FLIGHT = 0.26;
 const TAN = Math.tan(((FOV / 2) * Math.PI) / 180);
 const OUTLINE_OK = (o) => !o.material.transparent && !(o.material.isMeshBasicMaterial) && !o.userData.noOutline;
 
+// Phones and tablets: no MSAA, smaller shadow map, lower starting quality.
+const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+const OVERLAY_DPR = TOUCH ? 1.5 : 2;
+
 export function createRenderer(canvas) {
   const view = { W: 800, H: 600, dpr: 1 };
-  const gl = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  const gl = new THREE.WebGLRenderer({ canvas, antialias: !TOUCH, powerPreference: 'high-performance' });
   gl.shadowMap.enabled = true;
   gl.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -35,7 +39,7 @@ export function createRenderer(canvas) {
   scene.add(hemi);
   const sunLight = new THREE.DirectionalLight('#fff3dc', 2.4);
   sunLight.castShadow = true;
-  sunLight.shadow.mapSize.set(2048, 2048);
+  sunLight.shadow.mapSize.set(TOUCH ? 1024 : 2048, TOUCH ? 1024 : 2048);
   sunLight.shadow.bias = -0.0008;
   sunLight.shadow.normalBias = 0.04;
   scene.add(sunLight, sunLight.target);
@@ -74,8 +78,9 @@ export function createRenderer(canvas) {
     view.H = Math.max(1, r.height || window.innerHeight);
     gl.setPixelRatio(Math.min(view.dpr, view.W * view.H > 1.6e6 ? 1.5 : 2, LEVELS[perf.level].ratio));
     gl.setSize(view.W, view.H, false);
-    overlay.width = Math.round(view.W * view.dpr);
-    overlay.height = Math.round(view.H * view.dpr);
+    view.odpr = Math.min(view.dpr, OVERLAY_DPR);
+    overlay.width = Math.round(view.W * view.odpr);
+    overlay.height = Math.round(view.H * view.odpr);
     camera.aspect = view.W / view.H;
     camera.updateProjectionMatrix();
   }
@@ -127,8 +132,34 @@ export function createRenderer(canvas) {
     }
   }
 
+  // "TAP!" ring that closes in on the pig as the ground gets near.
+  function drawCue(s) {
+    const cue = s.cue;
+    const f = s.flight;
+    if (!cue || !f) return;
+    const [cx, cy] = toScreen(f.x, f.y);
+    const pulse = 0.5 + 0.5 * Math.sin(s.t * 18);
+    const r = cue.hop ? 44 + pulse * 6 : 34 + (1 - cue.k) * 70;
+    g.lineWidth = cue.now ? 6 : 3;
+    g.strokeStyle = cue.now ? '#b8ff2e' : 'rgba(255,255,255,0.75)';
+    g.beginPath();
+    g.arc(cx, cy, r, 0, Math.PI * 2);
+    g.stroke();
+    if (!cue.now) return;
+    const label = cue.hop ? 'TAP = HOP' : 'TAP!';
+    g.font = `400 ${cue.hop ? 22 : 30}px Bangers, Impact, sans-serif`;
+    g.textAlign = 'center';
+    g.lineJoin = 'round';
+    g.lineWidth = 6;
+    g.strokeStyle = '#141014';
+    g.strokeText(label, cx, cy - r - 8);
+    g.fillStyle = '#b8ff2e';
+    g.fillText(label, cx, cy - r - 8);
+  }
+
   function drawOverlay(s) {
-    const { W, H, dpr } = view;
+    const { W, H } = view;
+    const dpr = view.odpr || 1;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, W, H);
     const f = s.flight;
@@ -160,6 +191,7 @@ export function createRenderer(canvas) {
       g.arc(cx, cy, r.max * k, 0, Math.PI * 2);
       g.stroke();
     }
+    if (s.mode === 'flying') drawCue(s);
     s.fx.drawTexts(g, (x, y) => toScreen(x, y));
     if (s.bestAlt >= 40 && s.mode === 'flying') {
       const [, sy] = toScreen(s.cam.x - (W / s.cam.z) * 0.4, s.bestAlt);
@@ -177,8 +209,7 @@ export function createRenderer(canvas) {
   }
 
   // ---------- adaptive quality ----------
-  const touch = matchMedia('(pointer: coarse)').matches;
-  const perf = { level: touch ? 1 : 0, ema: 16, slowFor: 0, lastNow: performance.now() };
+  const perf = { level: TOUCH ? 2 : 0, ema: 16, slowFor: 0, lastNow: performance.now() };
   const LEVELS = [
     { ratio: 2, grass: 1, shadows: true },
     { ratio: 1.25, grass: 0.6, shadows: true },
@@ -204,7 +235,7 @@ export function createRenderer(canvas) {
     if (document.hidden || d > 150) return;
     perf.ema += (d - perf.ema) * 0.05;
     perf.slowFor = perf.ema > 24 ? perf.slowFor + d : 0;
-    if (perf.slowFor > 2500 && perf.level < LEVELS.length - 1) {
+    if (perf.slowFor > 1500 && perf.level < LEVELS.length - 1) {
       perf.level += 1;
       perf.slowFor = 0;
       perf.ema = 16;
@@ -221,7 +252,7 @@ export function createRenderer(canvas) {
     if (s.mode === 'moon') {
       if (!moon) moon = createMoonScene();
       moon.render(gl, pig, s, view);
-      g.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+      g.setTransform(view.odpr || 1, 0, 0, view.odpr || 1, 0, 0);
       g.clearRect(0, 0, view.W, view.H);
       s.fx.drawFlash(g, view.W, view.H);
       return;
