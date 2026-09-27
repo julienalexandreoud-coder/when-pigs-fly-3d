@@ -196,6 +196,7 @@ function autoLaunchFirst(realDt) {
 }
 
 function showFlightControls() {
+  input.setRocket(hasRocket());
   ui.controls(true, { rocket: hasRocket(), touch: input.usedTouch });
 }
 

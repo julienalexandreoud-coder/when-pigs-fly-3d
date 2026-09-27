@@ -2,7 +2,8 @@
 // HOLD anywhere (mouse, finger, ↑, W) = nose up; let go = glide down.
 // A fresh press also arms the "flare" bounce when the pig is about to land.
 // Keyboard: ↑ / W / ← / A = nose up, ↓ / S / → / D = dive.
-// BOOST: the on-screen rocket button, SPACE, SHIFT, X or J.
+// BOOST: the on-screen rocket button, SPACE, SHIFT, X or J. Before the rocket
+// is bought SPACE flies up instead, so it always does something.
 // SPACE and Enter still launch from the launch screen.
 // Esc / P pause.
 
@@ -16,6 +17,7 @@ export function createInput(canvas, { onAction, onPause, isTyping }) {
   const keys = new Set();
   const pointers = new Set();
   let boostHeld = false;
+  let hasRocket = false;
   let usedTouch = false;
   let pressed = false;
   let pitched = false;
@@ -34,7 +36,7 @@ export function createInput(canvas, { onAction, onPause, isTyping }) {
       return;
     }
     keys.add(e.code);
-    if (UP.has(e.code)) pressed = true;
+    if (UP.has(e.code) || (e.code === 'Space' && !hasRocket)) pressed = true;
     onAction('key', e.code);
   });
   window.addEventListener('keyup', (e) => keys.delete(e.code));
@@ -80,10 +82,11 @@ export function createInput(canvas, { onAction, onPause, isTyping }) {
 
   return {
     bindBoost,
+    setRocket(v) { hasRocket = v; },
     get usedTouch() { return usedTouch; },
     get holding() {
       if (pointers.size) return true;
-      for (const k of keys) if (UP.has(k)) return true;
+      for (const k of keys) if (UP.has(k) || (k === 'Space' && !hasRocket)) return true;
       return false;
     },
     // { pitch: -1 | 0 | 1, boost, pressed }. Positive pitch = nose up.
@@ -93,9 +96,9 @@ export function createInput(canvas, { onAction, onPause, isTyping }) {
       let down = false;
       let boost = boostHeld;
       for (const k of keys) {
-        if (UP.has(k)) up = true;
+        if (UP.has(k) || (k === 'Space' && !hasRocket)) up = true;
+        else if (BOOST.has(k)) boost = true;
         if (DOWN.has(k)) down = true;
-        if (BOOST.has(k)) boost = true;
       }
       const pitch = up === down ? 0 : up ? 1 : -1;
       if (pitch) pitched = true;

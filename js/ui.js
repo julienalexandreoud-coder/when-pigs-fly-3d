@@ -72,7 +72,7 @@ export function createUI(handlers) {
         const legend = touch
           ? `<span><b>HOLD screen</b> = fly up</span><span><b>LET GO</b> = dive</span>`
             + `<span><b>TAP</b> before landing = bounce</span>${rocket ? '<span><b>🚀 button</b> = boost</span>' : ''}`
-          : `<span>HOLD ${k('W', 'A', '↑', '←')} or click = fly up</span>`
+          : `<span>HOLD ${k('W', 'A', '↑', '←')}${rocket ? '' : k('SPACE')} or click = fly up</span>`
             + `<span>${k('S', 'D', '↓', '→')} or let go = dive</span>`
             + `<span><b>TAP</b> just before landing = bounce</span>`
             + (rocket ? `<span>${k('SPACE')} = boost</span>` : '')
