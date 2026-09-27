@@ -92,6 +92,31 @@ export function createJuice({ fx, audio, ui }) {
           if (e.n >= 4) fx.text(e.x, e.y - 1, pick(AURA), { color: '#ffd23f', size: 24, life: 1.2 });
           return { squash: 0.45 };
         }
+        case 'tnt': {
+          const floor = s.world.terrain.height(e.x);
+          audio.boom(true);
+          audio.boing();
+          fx.shake(16);
+          fx.flash('255,200,120', 0.45);
+          fx.boom(e.x, floor + 1, 5.5, 'fire');
+          fx.ring(e.x, e.y, '255,176,32', 260);
+          fx.debris(e.x, floor + 1, 26, { colors: ['#e63946', '#ffd23f', '#3a2a2a', '#ff7b00'], speed: 18, size: 0.5, floor });
+          fx.burst(e.x, e.y, 30, { colors: ['#ffe45c', '#ffb703', '#ff7b00', '#ffffff'], speed: 16, life: 0.9, size: 7, kind: 'spark', gravity: 4 });
+          fx.text(e.x, e.y + 4, `${pick(['KABOOM!', 'TNT GO BRRR', 'YEETED'])} +${e.coins}`, { color: '#ffb020', size: 42, life: 1.4 });
+          return { squash: 0.5 };
+        }
+        case 'gift': {
+          audio.perfect();
+          audio.pop(3);
+          fx.shake(5);
+          fx.ring(e.x, e.y, '255,46,136', 200);
+          fx.burst(e.x, e.y, 26, { colors: ['#ff2e88', '#ffd23f', '#ffffff', '#b8ff2e'], speed: 14, life: 0.9, size: 7, kind: 'confetti', gravity: 6, scale: k });
+          const txt = { coins: `LUCKY BOX! +${e.coins}`, zoom: 'ZOOMIES!! 💨', fuel: 'FULL TANK! ⛽', double: '2X COINS! 🤑' }[e.kind];
+          fx.text(e.x, e.y + 2 * k, txt, { color: '#ff7aa2', size: 36, life: 1.4 });
+          if (e.kind === 'double') ui.banner('2X COINS', '6 seconds, grab everything', 1400);
+          if (e.kind === 'zoom') { fx.flash('255,255,255', 0.25); audio.launch(true); }
+          return { squash: 0.4 };
+        }
         case 'combo':
           audio.star();
           ui.combo(e.mult);

@@ -15,6 +15,7 @@ export function createPanels(handlers) {
   $('btn-double').addEventListener('click', handlers.onDouble);
   $('btn-wind').addEventListener('click', handlers.onWind);
   $('btn-again').addEventListener('click', handlers.onAgain);
+  $('btn-quick-up').addEventListener('click', handlers.onQuickUp);
   $('btn-barn2').addEventListener('click', handlers.onBarn);
   $('btn-close-barn').addEventListener('click', handlers.onCloseBarn);
   $('btn-close-records').addEventListener('click', handlers.onCloseRecords);
@@ -78,7 +79,27 @@ export function createPanels(handlers) {
         sfx.done();
       }
       void running;
-    }, 85);
+    }, 55);
+  }
+
+  // One-tap upgrade: the cheapest upgrade the player can afford right now.
+  function quickUpgrade(opt, bought = false) {
+    const b = $('btn-quick-up');
+    b.classList.toggle('hidden', !opt);
+    b.classList.remove('bought');
+    if (bought) {
+      void b.offsetWidth;
+      b.classList.add('bought');
+    }
+    if (opt) b.innerHTML = `UPGRADE NOW: ${opt.name}<small>${opt.line} · <span class="coin-icon"></span>${formatInt(opt.cost)}</small>`;
+  }
+
+  function goalBar(goal) {
+    $('res-goal').classList.toggle('hidden', !goal);
+    if (!goal) return;
+    $('goal-label').textContent = `Next: ${goal.name}`;
+    $('goal-left').textContent = `${formatInt(Math.min(goal.have, goal.cost))} / ${formatInt(goal.cost)}`;
+    $('goal-fill').style.width = `${Math.min(100, (goal.have / goal.cost) * 100)}%`;
   }
 
   function skipCount(total) {
@@ -142,5 +163,5 @@ export function createPanels(handlers) {
     }).join('');
   }
 
-  return { results, skipCount, barn, records, missionText };
+  return { results, skipCount, quickUpgrade, goalBar, barn, records, missionText };
 }

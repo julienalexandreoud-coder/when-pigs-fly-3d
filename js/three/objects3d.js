@@ -25,9 +25,20 @@ function coinGeo() {
   return b.build();
 }
 
-const OUTLINED = new Set(['balloon', 'wballoon', 'goose', 'hotair', 'plane', 'ufo', 'fuel', 'satellite']);
+const OUTLINED = new Set(['gift', 'balloon', 'wballoon', 'goose', 'hotair', 'plane', 'ufo', 'fuel', 'satellite']);
 
 const MAKERS = {
+  // Lucky gift box: pink box, gold ribbon and a bow.
+  gift() {
+    const b = new Builder();
+    b.add(G.box(), '#ff2e88', mat(0, 0, 0, 0, 0, 0, [1.4, 1.2, 1.4]));
+    b.add(G.box(), '#ffd23f', mat(0, 0, 0, 0, 0, 0, [0.3, 1.24, 1.44]));
+    b.add(G.box(), '#ffd23f', mat(0, 0, 0, 0, 0, 0, [1.44, 1.24, 0.3]));
+    b.add(G.box(), '#ff5fa2', mat(0, 0.66, 0, 0, 0, 0, [1.55, 0.18, 1.55]));
+    b.add(G.sphere(10, 8), '#ffd23f', mat(-0.28, 0.88, 0, 0, 0, 0.6, [0.32, 0.22, 0.22]));
+    b.add(G.sphere(10, 8), '#ffd23f', mat(0.28, 0.88, 0, 0, 0, -0.6, [0.32, 0.22, 0.22]));
+    return new THREE.Mesh(geo('gift', () => b.build()), vcMat);
+  },
   coin() {
     const m = new THREE.Mesh(geo('coin', coinGeo), vcMat);
     m.material = new THREE.MeshToonMaterial({ vertexColors: true, emissive: new THREE.Color('#a86400'), emissiveIntensity: 0.35, gradientMap: gradientMap() });
@@ -273,6 +284,11 @@ function place(m, o, t, ctx) {
       m.rotation.y = t * 3 + o.x * 0.3;
       break;
     }
+    case 'gift':
+      m.position.set(o.x, o.y + Math.sin(t * 3 + o.x) * o.r * 0.2, 0);
+      m.scale.setScalar(o.r * (1 + Math.sin(t * 8) * 0.06));
+      m.rotation.set(0.25, t * 1.8, Math.sin(t * 2.4) * 0.2);
+      break;
     case 'star':
       m.position.set(o.x, o.y, 0);
       m.scale.setScalar(o.r * 1.3);

@@ -130,3 +130,77 @@ test('coach asks for a tap right before landing and marks the tip on tap', () =>
   const r2 = coach.update(f, { pressed: true }, true, 1 / 60, () => 0);
   assert.deepEqual(r2.done, ['flare']);
 });
+
+test('a TNT barrel blows up once and launches the pig up and forward', async () => {
+  const { collideGroundFeatures } = await import('../js/collide.js');
+  const { createTerrain } = await import('../js/terrain.js');
+  const terrain = createTerrain(4);
+  let seg = null;
+  for (const s of terrain.segments(100, 40000)) if (s.feature && s.feature.type === 'tnt') { seg = s; break; }
+  assert.ok(seg, 'some TNT exists');
+  const f = createFlight(computeStats({}), { power: 1 });
+  f.x = seg.feature.x;
+  f.y = terrain.height(f.x) + 1.2;
+  f.vx = 8;
+  f.vy = -3;
+  f.grounded = true;
+  const coins = f.coins;
+  assert.equal(collideGroundFeatures(f, terrain), true);
+  assert.ok(f.vy > 15 && f.vx > 15, `${f.vx} ${f.vy}`);
+  assert.equal(f.grounded, false);
+  assert.ok(f.coins > coins);
+  assert.equal(f.tnts, 1);
+  f.featureCd.clear();
+  f.y = terrain.height(f.x) + 1.2;
+  f.vy = -3;
+  collideGroundFeatures(f, terrain);
+  assert.equal(f.tnts, 1, 'a barrel only blows once');
+});
+
+test('early flights end soon after touching down (no long slide)', () => {
+  const world = createWorld(7);
+  const f = createFlight(computeStats({}), { power: 0.85 });
+  let touch = null;
+  for (let i = 0; i < 120 * 60 && !f.done; i++) {
+    stepFlight(f, autopilot(f), STEP, world);
+    if (touch === null && f.events.some((e) => ['thud', 'bounce'].includes(e.type))) touch = f.t;
+    f.events.length = 0;
+  }
+  assert.ok(touch !== null);
+  assert.ok(f.t - touch < 2, `slid for ${f.t - touch}s`);
+});
+
+test('coin rushes and gift boxes appear on the pig path and can be collected', async () => {
+  const { updateRush, RUSH_EVERY } = await import('../js/rush.js');
+  const world = createWorld(7);
+  const f = createFlight(computeStats({ launcher: 4, wings: 3 }), { power: 1 });
+  const kinds = [];
+  let coinsFromRush = 0;
+  for (let i = 0; i < 120 * 60 && !f.done; i++) {
+    const inp = autopilot(f);
+    const k = updateRush(f, world, STEP, () => 0.99);
+    if (k) kinds.push(k);
+    stepFlight(f, inp, STEP, world);
+    for (const e of f.events) if (e.type === 'gift') coinsFromRush += 1;
+    f.events.length = 0;
+  }
+  assert.ok(kinds.length >= 1, 'something spawned');
+  assert.equal(kinds[0], 'coins');
+  assert.ok(RUSH_EVERY <= 8);
+  const rushCoinsTaken = [...f.taken].filter((id) => String(id).startsWith('rush:')).length;
+  assert.ok(rushCoinsTaken >= 3, `took ${rushCoinsTaken} rush objects`);
+});
+
+test('double-coins gift doubles coin value for a while', async () => {
+  const { collideSky } = await import('../js/collide.js');
+  const world = createWorld(7);
+  const f = createFlight(computeStats({}), { power: 1 });
+  f.x = 500; f.y = 60; f.vx = 20; f.vy = 0;
+  world.spawn({ id: 'g', type: 'gift', x: 500, y: 60, r: 1.2, reward: 'double' });
+  collideSky(f, world, STEP, []);
+  assert.ok(f.doubleUntil > f.t);
+  world.spawn({ id: 'c', type: 'coin', x: 500.5, y: 60, r: 0.6, value: 3, star: false });
+  const before = f.coins;
+  collideSky(f, world, STEP, []);
+  assert.equal(f.coins - before, 6);
+});

@@ -157,8 +157,19 @@ export function createWorld(seed) {
     return objs;
   }
 
+  // Objects spawned during a flight (coin rushes, gift boxes).
+  const extra = [];
+  function spawn(o) {
+    extra.push(o);
+    if (extra.length > 200) extra.shift();
+  }
+
   // Every object whose cell overlaps the rectangle (broad phase).
   function query(x0, y0, x1, y1, out = []) {
+    for (let i = 0; i < extra.length; i++) {
+      const o = extra[i];
+      if (o.x >= x0 && o.x <= x1 && o.y >= y0 && o.y <= y1) out.push(o);
+    }
     for (let b = 0; b < LAYERS.length; b++) {
       const L = LAYERS[b];
       if (y1 < L.from || y0 > L.to) continue;
@@ -177,5 +188,5 @@ export function createWorld(seed) {
     return out;
   }
 
-  return { seed, terrain, query };
+  return { seed, terrain, query, spawn };
 }

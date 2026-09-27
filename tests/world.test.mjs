@@ -46,7 +46,7 @@ test('terrain: flat launch plateau, slopes down, features are clear of the launc
   for (const seg of t.segments(-100, 80)) assert.equal(seg.feature, null);
   const types = new Set();
   for (const seg of t.segments(0, 40000)) if (seg.feature) types.add(seg.feature.type);
-  assert.deepEqual([...types].sort(), ['haystack', 'mud', 'pond', 'trampoline']);
+  assert.deepEqual([...types].sort(), ['haystack', 'mud', 'pond', 'tnt', 'trampoline']);
   for (const seg of t.segments(100, 20000)) {
     const ft = seg.feature;
     if (ft && (ft.type === 'pond' || ft.type === 'mud')) {

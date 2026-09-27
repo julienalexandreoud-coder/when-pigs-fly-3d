@@ -229,6 +229,20 @@ export function createGround(scene) {
     }
   }
 
+  // Red TNT barrel with a warning stripe and a fuse. Built as its own mesh so
+  // it can disappear once it has blown up.
+  function tntBarrel(x, y, r) {
+    const b = new Builder();
+    b.add(G.cyl(r * 0.62, r * 0.62, 14), '#e63946', mat(x, y + r * 0.62, 0, 0, 0, 0, [1, r * 1.25, 1]));
+    for (const hy of [0.18, 1.06]) b.add(G.cyl(r * 0.65, r * 0.65, 14), '#3a2a2a', mat(x, y + r * hy, 0, 0, 0, 0, [1, 0.12, 1]));
+    b.add(G.cyl(r * 0.64, r * 0.64, 14), '#ffd23f', mat(x, y + r * 0.62, 0, 0, 0, 0, [1, 0.26, 1]));
+    b.add(G.cyl(0.07, 0.07, 6), '#141014', mat(x + 0.2, y + r * 1.4, 0, 0, 0, 0.4, [1, 0.5, 1]));
+    b.add(G.sphere(8, 6), '#ffb020', mat(x + 0.32, y + r * 1.62, 0, 0, 0, 0, 0.16));
+    const m = b.mesh({ shadow: true });
+    m.userData.tnt = true;
+    return m;
+  }
+
   function decorMesh(terrain, i) {
     const seg = terrain.segment(i);
     const b = new Builder();
@@ -275,6 +289,7 @@ export function createGround(scene) {
     const out = [];
     if (!b.empty) out.push(b.mesh({ shadow: true }));
     if (!farB.empty) out.push(farB.mesh({ shadow: false }));
+    if (ft && ft.type === 'tnt') out.push(tntBarrel(ft.x, terrain.height(ft.x), ft.r));
     return out;
   }
 
@@ -336,7 +351,7 @@ export function createGround(scene) {
   function grassSpot(terrain, x, z) {
     const ft = terrain.segment(Math.floor(x / SEG)).feature;
     if (ft && (ft.type === 'pond' || ft.type === 'mud') && Math.abs(z) < 8.5 && x > ft.x0 - 3 && x < ft.x1 + 3) return null;
-    if (ft && (ft.type === 'haystack' || ft.type === 'trampoline') && Math.abs(z) < 4 && Math.abs(x - ft.x) < 4) return null;
+    if (ft && (ft.type === 'haystack' || ft.type === 'trampoline' || ft.type === 'tnt') && Math.abs(z) < 4 && Math.abs(x - ft.x) < 4) return null;
     if (x < 8 && x > -30 && Math.abs(z + 1) < 2.6) return null;
     if (x < -8 && x > -60 && z < -3 && z > -40) return null;
     if (x > -4 && x < 4 && Math.abs(z) < 3) return null;
@@ -360,7 +375,8 @@ export function createGround(scene) {
 
   return {
     heightAt,
-    update(terrain, x0, x1, visible) {
+    // `blown` holds the segments whose TNT barrel already exploded.
+    update(terrain, x0, x1, visible, blown = null) {
       if (terrain !== currentTerrain) {
         clear();
         currentTerrain = terrain;
@@ -375,6 +391,7 @@ export function createGround(scene) {
           chunks.delete(i);
         } else {
           g.visible = visible;
+          for (const o of g.children) if (o.userData.tnt) o.visible = !(blown && blown.has(i));
         }
       }
       if (!visible) return;

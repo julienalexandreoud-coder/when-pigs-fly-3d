@@ -273,7 +273,7 @@ export function createRenderer(canvas) {
     const x0 = cam.x - viewW * 0.9 - 60;
     const x1 = cam.x + viewW * 1.4 + 140;
     const groundVisible = cam.y - viewH < 700;
-    ground.update(s.world.terrain, x0, x1, groundVisible);
+    ground.update(s.world.terrain, x0, x1, groundVisible, s.flight && s.mode !== 'ready' ? s.flight.blown : null);
     const farmVisible = cam.x - viewW < 80 && cam.y < 500;
     const ready = s.mode === 'ready';
     const seat = farm.update({

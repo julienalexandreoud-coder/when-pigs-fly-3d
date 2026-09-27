@@ -22,6 +22,8 @@ export function createUI(handlers) {
     barnBadge: $('barn-badge'), barnBadge2: $('barn-badge2'), golden: $('btn-golden'), goldenOn: $('golden-on'),
     adShade: $('ad-shade'), boot: $('boot'),
   };
+  const MAX_FLYING = 14;
+  let flying = 0;
   let bannerTimer = null;
   let bannerUntil = 0;
   let sixTimer = null;
@@ -81,6 +83,29 @@ export function createUI(handlers) {
         $('pause-controls').innerHTML = legend;
       }
       if (!visible) this.combo(1);
+    },
+    // A coin sprite that flies from a screen point into the HUD coin counter.
+    flyCoin(x, y, delay = 0) {
+      if (flying >= MAX_FLYING || !Number.isFinite(x) || !Number.isFinite(y)) return;
+      const to = el.coinPill.getBoundingClientRect();
+      if (!to.width) return;
+      flying += 1;
+      const c = document.createElement('div');
+      c.className = 'fly-coin';
+      c.style.left = `${x}px`;
+      c.style.top = `${y}px`;
+      document.body.appendChild(c);
+      setTimeout(() => {
+        c.style.transform = `translate(${to.left + 16 - x}px, ${to.top + to.height / 2 - y}px) scale(0.6)`;
+        c.style.opacity = '0.4';
+      }, 20 + delay);
+      setTimeout(() => {
+        c.remove();
+        flying -= 1;
+        el.coinPill.classList.remove('bump');
+        void el.coinPill.offsetWidth;
+        el.coinPill.classList.add('bump');
+      }, 520 + delay);
     },
     boostEmpty(empty) { el.boostBtn.classList.toggle('empty', empty); },
     combo(mult) {

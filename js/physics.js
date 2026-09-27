@@ -9,7 +9,11 @@ import { collideSky, collideGroundFeatures, stepAbduction, emit, setFace } from 
 
 const TWO_PI = Math.PI * 2;
 const SONIC = 343;
-const GRASS_FRICTION = 4;
+// Grass stops a sliding pig quickly so a flight never ends in a long crawl.
+const GRASS_FRICTION = 11;
+// Automatic skims off the ground need real speed and a shallow angle.
+const SKIM_SPEED = 14;
+const SKIM_ANGLE = 0.45;
 // Flare: tapping just before touching down turns a crash into a bounce.
 export const FLARE_WINDOW = 0.45;
 const FLARE_MIN_SPEED = 7;
@@ -73,6 +77,13 @@ export function createFlight(stats, { power = 1, perfect = false, golden = false
     pressT: -9,
     upHeld: false,
     flares: 0,
+    tnts: 0,
+    gifts: 0,
+    doubleUntil: -9,
+    rushT: 0,
+    rushN: 0,
+    blown: new Set(),
+    milestone: 0,
     taken: new Set(),
     fieldTime: new Map(),
     featureCd: new Map(),
@@ -208,7 +219,7 @@ function groundContact(f, terrain) {
     end(f, 'splash');
     return;
   }
-  const skim = speed > 7 && impact < 0.55;
+  const skim = speed > SKIM_SPEED && impact < SKIM_ANGLE;
   if (skim) {
     bounce(f, nx, ny, vn, vt, f.stats.restitution, 0.92, 'bounce');
     if (Math.abs(f.vx * nx + f.vy * ny) > 2) return;
@@ -391,6 +402,7 @@ export function summarize(f) {
     abductions: f.abductions,
     bounces: f.bounces,
     flares: f.flares,
+    tnts: f.tnts,
     bestCombo: f.bestCombo,
     glideDist: f.glideDist,
     fuelCans: f.fuelCans,

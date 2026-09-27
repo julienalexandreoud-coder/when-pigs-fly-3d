@@ -24,7 +24,7 @@
 <body>
 <canvas id="c"></canvas>
 <div class="band"></div>
-<div class="brand"><div class="wpf-logo" id="logo"></div><div class="tag">YEET THE PIG TO THE MOON</div></div>
+<div class="brand"><div class="wpf-logo" id="logo"></div></div>
 <script type="module">
 import { THREE, Builder, G, mat, addOutlines, hash01 } from '../js/three/kit.js';
 import { createSky } from '../js/three/sky3d.js';
@@ -75,11 +75,15 @@ const pig = createPig();
 scene.add(pig.root);
 
 // Composition per format, in normalized device coords (x, y in -1..1).
+// boom: the TNT blast Pip is launched out of; near: big coins close to the camera.
 const L = wide
-  ? { pig: [-0.3, -0.02], pigDist: 33, pigScale: 2.8, moon: [0.62, -0.35], moonSize: 150, trail: [[-0.62, -0.42], [-1.15, -0.9]], coins: [0.12, 0.2], balloons: [[-0.85, 0.55, '#ff4d6d'], [0.15, 0.62, '#ffb703']] }
+  ? { pig: [-0.22, 0.02], pigDist: 30, pigScale: 3.1, moon: [0.66, -0.4], moonSize: 150, boom: [-0.78, -0.7], boomSize: 36, coins: [0.12, 0.2],
+      near: [[-0.02, -0.72, 12], [0.36, 0.1, 14], [-0.9, 0.2, 13]], balloons: [[0.2, 0.66, '#ffb703']] }
   : square
-    ? { pig: [-0.06, 0.3], pigDist: 34, pigScale: 2.8, moon: [0.62, 0.74], moonSize: 120, trail: [[-0.45, 0.02], [-1.1, -0.35]], coins: [0.14, 0.52], balloons: [[-0.85, 0.05, '#ff4d6d'], [0.85, 0.12, '#06d6a0']] }
-    : { pig: [0.0, 0.3], pigDist: 33, pigScale: 3.0, moon: [0.58, 0.76], moonSize: 115, trail: [[-0.4, 0.05], [-1.1, -0.3]], coins: [0.12, 0.5], balloons: [[-0.8, 0.12, '#ff4d6d'], [0.82, 0.1, '#06d6a0']] };
+    ? { pig: [-0.02, 0.3], pigDist: 33, pigScale: 3.0, moon: [0.66, 0.78], moonSize: 115, boom: [-0.66, -0.25], boomSize: 32, coins: [0.14, 0.52],
+        near: [[0.72, -0.02, 13], [-0.82, 0.62, 14]], balloons: [[0.85, 0.3, '#06d6a0']] }
+    : { pig: [0.0, 0.3], pigDist: 33, pigScale: 3.2, moon: [0.6, 0.8], moonSize: 115, boom: [-0.6, -0.15], boomSize: 32, coins: [0.12, 0.5],
+        near: [[0.75, 0.05, 13], [-0.8, 0.66, 14]], balloons: [[0.82, 0.3, '#06d6a0']] };
 
 camera.position.set(0, 40, 0);
 camera.lookAt(30, 56, -60);
@@ -103,7 +107,18 @@ pig.root.lookAt(camera.position);
 pig.root.rotateY(-Math.PI / 2 - 0.6);
 pig.root.rotateZ(0.42);
 pig.root.scale.setScalar(L.pigScale);
-pig.update({ skin: skinById('pink'), tiers: { wings: 0, rocket: 3, helmet: 0 }, face: 'happy', boosting: true, t: 0.35, squash: 0, flap: 0.5 });
+pig.update({ skin: skinById('pink'), tiers: { wings: 0, rocket: 3, helmet: 0 }, face: 'scared', boosting: true, t: 0.35, squash: 0, flap: 0.5 });
+// Screaming "O" mouth with a tongue: the shocked face sells the cover.
+{
+  const ink = new THREE.MeshBasicMaterial({ color: '#2a0d18' });
+  const mouth = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), ink);
+  mouth.position.set(1.42, -0.2, 0);
+  mouth.scale.set(0.08, 0.2, 0.17);
+  const tongue = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 10), new THREE.MeshBasicMaterial({ color: '#ff5d8f' }));
+  tongue.position.set(1.47, -0.3, 0);
+  tongue.scale.set(0.05, 0.08, 0.11);
+  pig.root.add(mouth, tongue);
+}
 pig.root.traverse((o) => { if (o.isGroup && o.children.length === 1 && o.children[0].isMesh && Math.abs(o.position.z) > 0.5 && Math.abs(o.position.z) < 0.6) o.visible = false; });
 addOutlines(pig.root, (o) => !o.material.transparent && !o.material.isMeshBasicMaterial);
 
@@ -149,8 +164,8 @@ function raysTexture() {
   for (let i = 0; i < 18; i++) {
     g.rotate((Math.PI * 2) / 18);
     const grad = g.createLinearGradient(0, 0, 256, 0);
-    grad.addColorStop(0, 'rgba(255,255,255,0.55)');
-    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    grad.addColorStop(0, 'rgba(255,236,170,0.7)');
+    grad.addColorStop(1, 'rgba(255,220,140,0)');
     g.fillStyle = grad;
     g.beginPath(); g.moveTo(0, 0); g.lineTo(256, -34); g.lineTo(256, 34); g.closePath(); g.fill();
   }
@@ -189,6 +204,73 @@ for (let i = 0; i < 7; i++) {
   put(`c${i}`, 'coin', L.pig[0] + L.coins[0] + k * (L.moon[0] - L.pig[0] - L.coins[0]) * 0.7, L.pig[1] + L.coins[1] * (0.35 + 0.65 * Math.sin(k * Math.PI * 0.6)) * 0.9 + k * 0.1, L.pigDist + 2 + i * 1.2, { r: 1.2, value: 1 });
 }
 L.balloons.forEach(([nx, ny, color], i) => put(`b${i}`, 'balloon', nx, ny, 70, { r: 2.2, color }));
+objects.update(objs, 0.7, { taken: null, hasRocket: true, carrying: null });
+scene.traverse((o) => { if (o.userData && o.userData.type && objs.length) { const src = objs.find((x) => Math.abs(x.x - o.position.x) < 0.01 && Math.abs(x.y - o.position.y) < 3); if (src) o.position.z = src.z; } });
+
+// ---------- the TNT blast Pip came out of ----------
+function blastTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const g = c.getContext('2d');
+  g.translate(256, 256);
+  const spikes = (rOut, rIn, n, color, rot) => {
+    g.fillStyle = color;
+    g.beginPath();
+    for (let i = 0; i < n * 2; i++) {
+      const a = rot + (i / (n * 2)) * Math.PI * 2;
+      const r = (i % 2 ? rIn : rOut) * (0.85 + hash01(i, n, 5) * 0.3);
+      g.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    g.closePath();
+    g.fill();
+  };
+  spikes(250, 150, 14, '#ff4d1a', 0);
+  spikes(205, 125, 12, '#ff9f1c', 0.2);
+  spikes(150, 90, 10, '#ffd23f', 0.5);
+  const core = g.createRadialGradient(0, 0, 0, 0, 0, 110);
+  core.addColorStop(0, 'rgba(255,255,240,1)');
+  core.addColorStop(1, 'rgba(255,240,160,0)');
+  g.fillStyle = core;
+  g.beginPath(); g.arc(0, 0, 110, 0, Math.PI * 2); g.fill();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const boomPos = at(L.boom[0], L.boom[1], L.pigDist + 10);
+{
+  const blast = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: blastTexture(), transparent: true, depthWrite: false, fog: false }));
+  blast.position.copy(boomPos);
+  blast.lookAt(camera.position);
+  blast.rotateZ(0.3);
+  blast.scale.setScalar(L.boomSize);
+  scene.add(blast);
+  // Smoke puffs and flying barrel pieces.
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2 + 0.3;
+    const pos = boomPos.clone().add(new THREE.Vector3(Math.cos(a) * L.boomSize * 0.5, Math.sin(a) * L.boomSize * 0.4, -2));
+    const puff = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 2), new THREE.MeshBasicMaterial({ color: i % 2 ? '#ffffff' : '#fff1d6', fog: false }));
+    puff.position.copy(pos);
+    puff.scale.setScalar(L.boomSize * (0.045 + hash01(i, 32) * 0.035));
+    scene.add(puff);
+  }
+  for (let i = 0; i < 10; i++) {
+    const a = hash01(i, 41) * Math.PI * 2;
+    const r = L.boomSize * (0.55 + hash01(i, 42) * 0.35);
+    const shard = new THREE.Mesh(new THREE.BoxGeometry(1, 0.35, 0.8), new THREE.MeshBasicMaterial({ color: ['#e63946', '#ffd23f', '#ff7b00'][i % 3], fog: false }));
+    shard.position.copy(boomPos).add(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r * 0.8, 6));
+    shard.rotation.set(hash01(i, 43) * 6, hash01(i, 44) * 6, hash01(i, 45) * 6);
+    shard.scale.setScalar(L.boomSize * 0.05);
+    addOutlines(shard, () => true);
+    scene.add(shard);
+  }
+}
+// Big coins right in front of the camera, bursting out at the viewer.
+L.near.forEach(([nx, ny, dist], i) => put(`n${i}`, 'coin', nx, ny, dist, { r: 1.1 + i * 0.1, value: 1 }));
+for (let i = 0; i < 10; i++) {
+  const a = hash01(i, 51) * Math.PI * 2;
+  const r = 0.12 + hash01(i, 52) * 0.2;
+  put(`x${i}`, 'coin', L.boom[0] + Math.cos(a) * r * 1.4, L.boom[1] + 0.12 + Math.sin(a) * r, L.pigDist + 4 + hash01(i, 53) * 6, { r: 1.2, value: 1 });
+}
 objects.update(objs, 0.7, { taken: null, hasRocket: true, carrying: null });
 scene.traverse((o) => { if (o.userData && o.userData.type && objs.length) { const src = objs.find((x) => Math.abs(x.x - o.position.x) < 0.01 && Math.abs(x.y - o.position.y) < 3); if (src) o.position.z = src.z; } });
 

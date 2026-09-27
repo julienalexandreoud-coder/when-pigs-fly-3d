@@ -6,6 +6,9 @@ import { LAYERS, layerIndexAt, scaleAt, PIG_R, clamp } from './config.js';
 const SPEED_KEEP = { goose: 0.75, thunder: 0.7, satellite: 0.75, asteroid: 0.75, plane: 0.7 };
 const FIELD_LIMIT = { updraft: 1.6, jetstream: 3 };
 const TWO_PI = Math.PI * 2;
+const TNT_KICK_X = 12;
+const TNT_KICK_Y = 22;
+const TNT_COINS = 5;
 
 export function emit(f, type, data = {}) {
   if (!f.quiet) f.events.push({ type, ...data });
@@ -62,6 +65,32 @@ function fieldPush(f, o, dt) {
   if (used === 0) emit(f, 'wind', { kind: o.type, x: f.x, y: f.y });
   if (o.type === 'updraft') f.vy += o.power * dt;
   else f.vx += o.power * dt;
+}
+
+// Lucky gift box: one of four random rewards (the roll is stored on the box).
+export const GIFTS = ['coins', 'zoom', 'fuel', 'double'];
+export const DOUBLE_TIME = 6;
+function openGift(f, o) {
+  f.taken.add(o.id);
+  f.gifts += 1;
+  let kind = o.reward;
+  if (kind === 'fuel' && f.fuelMax <= 0) kind = 'coins';
+  let coins = 0;
+  if (kind === 'coins') {
+    coins = Math.round(12 * objScale(o) + f.stats.launchSpeed * 0.4);
+    f.coins += coins;
+  } else if (kind === 'zoom') {
+    const s = Math.hypot(f.vx, f.vy) || 1;
+    const kick = 16 + s * 0.15;
+    f.vx += (f.vx / s) * kick;
+    f.vy = Math.max(f.vy, 0) + 10;
+  } else if (kind === 'fuel') {
+    f.fuel = f.fuelMax;
+  } else {
+    f.doubleUntil = f.t + DOUBLE_TIME;
+  }
+  setFace(f, 'happy', 1);
+  emit(f, 'gift', { x: o.x, y: o.y, kind, coins });
 }
 
 function surfPlane(f, o) {
@@ -133,12 +162,14 @@ export function collideSky(f, world, dt, scratch) {
     if (o.type === 'coin') {
       if (d < o.r + pr + f.stats.magnet * S) {
         f.taken.add(o.id);
-        const mult = comboUp(f);
+        const mult = comboUp(f) * (f.t < f.doubleUntil ? 2 : 1);
         const value = Math.round(o.value * mult);
         f.coins += value;
         setFace(f, 'happy', 0.4);
         emit(f, 'coin', { x: o.x, y: o.y, value, star: o.star, mult, chain: f.coinChain });
       }
+    } else if (o.type === 'gift') {
+      if (d < o.r + pr + 0.8 * S) openGift(f, o);
     } else if (o.type === 'fuel') {
       if (d < o.r + pr + 0.6 * S) {
         f.taken.add(o.id);
@@ -183,6 +214,21 @@ export function collideGroundFeatures(f, terrain) {
         reflect(f, dx / d, dy / d, 0.75);
         f.vy = Math.max(f.vy, 8);
         return bounced(f, seg, 'hay');
+      }
+    } else if (ft.type === 'tnt') {
+      // TNT barrel: blows up once and launches the pig up and forward.
+      if (f.blown.has(seg.i)) continue;
+      const hy = terrain.height(ft.x) + 0.9;
+      const d = Math.hypot(f.x - ft.x, f.y - hy);
+      if (d < ft.r + pr + 0.6) {
+        f.blown.add(seg.i);
+        f.vx = Math.max(f.vx, 10) + TNT_KICK_X;
+        f.vy = Math.max(f.vy, 0) + TNT_KICK_Y;
+        f.coins += TNT_COINS;
+        f.tnts += 1;
+        f.y = Math.max(f.y, hy + ft.r + pr);
+        emit(f, 'tnt', { x: ft.x, y: hy, seg: seg.i, coins: TNT_COINS });
+        return bounced(f, seg, 'kaboom');
       }
     } else if (ft.type === 'trampoline') {
       const top = terrain.height(ft.x) + 1.4;

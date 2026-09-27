@@ -30,6 +30,7 @@ export function payout(summary, payMult) {
 
 function trickDetail(s) {
   const parts = [];
+  if (s.tnts) parts.push(`${s.tnts} kaboom${s.tnts > 1 ? 's' : ''}`);
   if (s.flares) parts.push(`${s.flares} bounce${s.flares > 1 ? 's' : ''}`);
   if (s.flips) parts.push(`${s.flips} flip${s.flips > 1 ? 's' : ''}`);
   if (s.balloons) parts.push(`${s.balloons} pop${s.balloons > 1 ? 's' : ''}`);

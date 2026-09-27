@@ -4,9 +4,9 @@ import { createWorld } from './world.js';
 import { SEG } from './terrain.js';
 import { createFlight, stepFlight, canSkip, simulateToEnd, rebound, summarize } from './physics.js';
 import { needleAt, meterPeriod, launchZone, launchPower } from './launch.js';
-import { nextGoal, affordableCount } from './economy.js';
+import { nextGoal, affordableCount, shopOptions } from './economy.js';
 import { missionDone, missionText } from './missions.js';
-import { skinById } from './upgrades.js';
+import { skinById, upgradeById } from './upgrades.js';
 import {
   DEFAULT_SAVE, createStorage, recordFlight, buyUpgrade, buySkin, addCoins, markTip, statsOf, update,
 } from './save.js';
@@ -21,6 +21,7 @@ import { createUI } from './ui.js';
 import { createJuice } from './juice.js';
 import { botInput } from './bot.js';
 import { createCoach, landingCue } from './coach.js';
+import { updateRush } from './rush.js';
 
 const PARAMS = new URLSearchParams(location.search);
 const DEBUG = PARAMS.has('debug');
@@ -54,7 +55,10 @@ const S = {
 // moved to Full Launch, then set it to true (or test with ?debug&ads).
 const ADS_ENABLED = false;
 const FIRST_AUTOLAUNCH_S = 7;
-const END_PAUSE = 0.9;
+const END_PAUSE = 0.55;
+// Distance milestones pay a little bonus the moment they are crossed.
+const MILESTONES = [25, 50, 100, 150, 200, 300, 400, 500, 750, 1000, 1500, 2000, 3000, 5000, 7500, 10000];
+const milestoneBonus = (m) => Math.max(2, Math.round(m / 25));
 const RESULTS_KEY_DELAY = 600;
 const canAds = () => (ADS_ENABLED && Sdk.available) || (DEBUG && PARAMS.has('ads'));
 const hasRocket = () => (save.upgrades.rocket || 0) > 0;
@@ -250,8 +254,26 @@ function sixSevenChecks() {
   }
 }
 
+function flyCoins(x, y, n) {
+  const [sx, sy] = renderer.toScreen(x, y);
+  for (let i = 0; i < n; i++) ui.flyCoin(sx + (Math.random() - 0.5) * 30 * (n > 1), sy + (Math.random() - 0.5) * 30 * (n > 1), i * 45);
+}
+
+function milestoneCheck() {
+  const f = S.flight;
+  const m = MILESTONES[f.milestone];
+  if (m === undefined || f.distance < m) return;
+  f.milestone += 1;
+  const bonus = milestoneBonus(m);
+  f.coins += bonus;
+  audio.star();
+  fx.text(f.x, f.y + 3 * scaleAt(f.y), `${formatDistance(m)}! +${bonus}`, { color: '#b8ff2e', size: 30 });
+  flyCoins(f.x, f.y, Math.min(5, 1 + Math.floor(bonus / 4)));
+}
+
 function liveChecks() {
   const f = S.flight;
+  milestoneCheck();
   sixSevenChecks();
   for (const m of save.missions.active) {
     if (!S.shownMissions.has(m.kind) && missionDone(m, f)) {
@@ -283,6 +305,8 @@ function stepFlightFrame(dt) {
     acc -= h;
   }
   for (const e of f.events) {
+    if (e.type === 'coin' || e.type === 'tnt') flyCoins(e.x, e.y, e.type === 'tnt' ? 5 : 1);
+    if (e.type === 'gift' && e.coins) flyCoins(e.x, e.y, 5);
     const out = juice.handle(e, f, S);
     if (out && out.squash) S.squash = out.squash;
     if (out && out.trampoline) S.trampT.set(Math.floor(f.x / SEG), S.t);
@@ -309,6 +333,9 @@ function stepFlightFrame(dt) {
     alt: f.y, speed: Math.hypot(f.vx, f.vy), dist: Math.max(0, f.x), coins: f.coins, fuel: f.fuel, fuelMax: f.fuelMax,
     best: Math.max(save.best.alt, S.prevBest), canSkip: canSkip(f) && f.y > 60 && !S.autoplay,
   });
+  if (!coach.active && !S.autoplay && updateRush(f, S.world, dt) === 'coins') {
+    fx.text(f.x + f.vx * 1.2, f.y + 4 * scaleAt(f.y), 'COIN RUSH!', { color: '#ffd23f', size: 30 });
+  }
   S.cue = coach.active ? null : landingCue(f, groundAt);
   const empty = f.fuelMax > 0 && f.fuel <= 0;
   if (empty !== S.boostEmpty) { S.boostEmpty = empty; ui.boostEmpty(empty); }
@@ -335,10 +362,45 @@ function flightOver() {
   persist(sixSeven ? addCoins(res.save, sixSeven) : res.save);
   S.result = { ...res, summary, sixSeven };
   if (res.records.alt || res.medals.length || res.firstMoon) Sdk.happytime();
+  if (!f.moon && f.cause !== 'quit') cashOut(f, res.payout.total + sixSeven);
   if (f.moon) {
     audio.moon();
     fx.flash('255,255,255', 0.9);
   }
+}
+
+// Big "+coins" pop over the wreck: the reward lands before the results card.
+function cashOut(f, total) {
+  const k = scaleAt(f.y);
+  fx.text(f.x, f.y + 8 * k, `+${formatInt(total)} COINS`, { color: '#ffd23f', size: 50, life: 1.3, rise: 90 });
+  fx.burst(f.x, f.y + 2 * k, 26, { colors: ['#ffe45c', '#ffcf1f', '#fff3b0'], speed: 15, life: 1, size: 7, kind: 'confetti', gravity: 10, dir: Math.PI / 2, spread: 2 });
+  flyCoins(f.x, f.y, 8);
+  setTimeout(() => audio.buy(), 150);
+}
+
+// Best affordable upgrade for the one-tap button: whatever makes Pip fly
+// farther first, the bouncy belly last.
+const QUICK_ORDER = ['launcher', 'wings', 'rocket', 'tank', 'helmet', 'magnet', 'belly'];
+function quickOption() {
+  const rank = (id) => (QUICK_ORDER.includes(id) ? QUICK_ORDER.indexOf(id) : QUICK_ORDER.length);
+  const o = shopOptions(save).filter((x) => x.kind === 'upgrade' && x.cost <= save.coins).sort((a, b) => rank(a.id) - rank(b.id))[0];
+  return o ? { ...o, line: upgradeById(o.id).name } : null;
+}
+
+function quickUpgrade() {
+  const o = quickOption();
+  if (!o) return;
+  const r = buyUpgrade(save, o.id);
+  if (!r.ok) { audio.deny(); return; }
+  persist(r.save);
+  audio.buy();
+  audio.medal();
+  fx.flash('184,255,46', 0.35);
+  ui.toast(`<b>${o.line}</b> upgraded to <b>${o.name}</b>! Fly farther!`);
+  ui.panels.quickUpgrade(quickOption(), true);
+  const goal = nextGoal(save);
+  ui.panels.goalBar(goal ? { name: goal.name, cost: goal.cost, have: save.coins } : null);
+  ui.badge(affordableCount(save));
 }
 
 function resultsView() {
@@ -381,6 +443,7 @@ function showResults() {
   ui.hud(false);
   ui.controls(false);
   ui.panels.results(resultsView(), { tick: (i) => audio.tick(i), done: () => audio.buy() });
+  ui.panels.quickUpgrade(quickOption());
   ui.show('results');
   ui.badge(affordableCount(save));
   const r = S.result;
@@ -522,6 +585,7 @@ const ui = createUI({
     Sdk.gameplayStart();
   },
   onAgain: yeetAgain,
+  onQuickUp: quickUpgrade,
   onResume: resume,
   onQuit() {
     if (S.mode !== 'paused') return;

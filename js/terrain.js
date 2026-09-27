@@ -1,5 +1,5 @@
 // Ground: gentle hills plus per-segment features (haystacks, trampolines,
-// mud and ponds). Deterministic per seed; the launch area stays clear.
+// TNT barrels, mud and ponds). Deterministic per seed; the launch area stays clear.
 
 import { mulberry32, hash, range } from './rng.js';
 import { HILL } from './config.js';
@@ -23,13 +23,14 @@ export function createTerrain(seed) {
       const rng = mulberry32(hash(seed, 77, i));
       const r = rng();
       let feature = null;
-      if (r < 0.2) feature = { type: 'haystack', x: x + range(rng, 12, SEG - 12), r: 2.3 };
-      else if (r < 0.3) feature = { type: 'trampoline', x: x + range(rng, 12, SEG - 12), w: 5.5 };
-      else if (r < 0.37) {
+      if (r < 0.16) feature = { type: 'haystack', x: x + range(rng, 12, SEG - 12), r: 2.3 };
+      else if (r < 0.26) feature = { type: 'trampoline', x: x + range(rng, 12, SEG - 12), w: 5.5 };
+      else if (r < 0.37) feature = { type: 'tnt', x: x + range(rng, 12, SEG - 12), r: 1.6 };
+      else if (r < 0.43) {
         const w = range(rng, 10, 16);
         const x0 = x + range(rng, 6, SEG - w - 6);
         feature = { type: 'mud', x0, x1: x0 + w };
-      } else if (r < 0.44) {
+      } else if (r < 0.5) {
         const w = range(rng, 18, 30);
         const x0 = x + range(rng, 6, SEG - w - 6);
         feature = { type: 'pond', x0, x1: x0 + w };
