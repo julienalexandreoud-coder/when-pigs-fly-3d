@@ -65,9 +65,10 @@ export function createUI(handlers) {
       el.boostBtn.classList.toggle('hidden', !visible || !rocket);
       el.controls.classList.toggle('hidden', !visible || !legend);
       if (visible && legend) {
-        const hold = touch ? 'HOLD screen' : 'HOLD click / SPACE';
-        el.controls.innerHTML = `<span><b>${hold}</b> = fly up</span><span><b>LET GO</b> = dive</span>`
-          + `<span><b>TAP</b> before landing = bounce</span>${rocket ? `<span><b>${touch ? '🚀 button' : 'SHIFT / →'}</b> = boost</span>` : ''}`;
+        const hold = touch ? 'HOLD screen' : 'HOLD W / ↑ / SPACE / click';
+        const dive = touch ? 'LET GO' : 'LET GO or S / ↓';
+        el.controls.innerHTML = `<span><b>${hold}</b> = fly up</span><span><b>${dive}</b> = dive</span>`
+          + `<span><b>TAP</b> before landing = bounce</span>${rocket ? `<span><b>${touch ? '🚀 button' : 'SHIFT'}</b> = boost</span>` : ''}`;
       }
       if (!visible) this.combo(1);
     },

@@ -16,7 +16,7 @@ import { createAudio } from './audio.js';
 import { createRenderer } from './render3d.js';
 import { createCamera, snapToReady, updateCamera } from './camera.js';
 import { createFx } from './fx.js';
-import { createInput } from './input.js';
+import { createInput, LAUNCH_KEYS } from './input.js';
 import { createUI } from './ui.js';
 import { createJuice } from './juice.js';
 import { botInput } from './bot.js';
@@ -213,7 +213,7 @@ function updateHints() {
   if (!S.hintKind) {
     if (coach.active) return;
     if (hasRocket() && !save.tips.includes('boost') && f.t > 0.3) {
-      setHint('boost', touch ? 'Hold the 🚀 BOOST button!' : 'Hold SHIFT or → to BOOST!', 4);
+      setHint('boost', touch ? 'Hold the 🚀 BOOST button!' : 'Hold SHIFT to BOOST!', 4);
     } else if (!save.tips.includes('skip') && canSkip(f) && f.y > 60) {
       setHint('skip', 'Tap Skip ⏩ to land right away', 3);
     }
@@ -522,7 +522,7 @@ const input = createInput(canvas, {
   onAction(kind, code) {
     audio.unlock();
     if (S.mode === 'ready' && !S.adBusy && !S.modal) {
-      if (kind === 'key' && code !== 'Space' && code !== 'Enter' && code !== 'ArrowUp' && code !== 'KeyW') return;
+      if (kind === 'key' && !LAUNCH_KEYS.has(code)) return;
       launch();
     } else if (S.mode === 'results' && kind === 'key' && (code === 'Space' || code === 'Enter')
       && performance.now() - S.resultsAt > RESULTS_KEY_DELAY && !document.getElementById('results').classList.contains('hidden')) {
