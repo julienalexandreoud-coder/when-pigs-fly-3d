@@ -302,7 +302,7 @@ export function createRenderer(canvas) {
       pig.root.scale.setScalar(PIG_R);
     }
     pig.update({
-      skin: s.skin, tiers: s.tiers, face: s.face, boosting: s.boosting, t: s.t, squash: s.squash,
+      skin: s.skin, tiers: s.tiers, face: s.face, boosting: s.boosting, flapping: s.flapping, t: s.t, squash: s.squash,
       flap: s.mode === 'flying' ? 1 : 0.3,
     });
     addOutlines(pig.root, OUTLINE_OK);

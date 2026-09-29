@@ -105,7 +105,7 @@ export function createInput(canvas, { onAction, onPause, isTyping }) {
       if (boost) boosted = true;
       const p = pressed;
       pressed = false;
-      return { pitch, boost, pressed: p };
+      return { pitch, boost, pressed: p, flap: up && !down };
     },
     get pitched() { return pitched; },
     get boosted() { return boosted; },

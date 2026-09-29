@@ -239,3 +239,20 @@ test('the starter zone puts balloons and coins low over the first 450 m', () => 
   assert.ok(balloons.length >= 6, `${balloons.length} balloons`);
   assert.ok(coins.length >= 25, `${coins.length} coins`);
 });
+
+test('holding "fly up" flaps: a new player really climbs, energy runs out and refills', async () => {
+  const idle = fly(() => ({ pitch: 0, boost: false }));
+  const flapper = fly(() => ({ pitch: 1, boost: false, flap: true }));
+  assert.ok(flapper.maxAlt > idle.maxAlt + 25, `${flapper.maxAlt} vs ${idle.maxAlt}`);
+  assert.ok(flapper.distance > idle.distance * 1.8, `${flapper.distance} vs ${idle.distance}`);
+  assert.equal(flapper.flap, 0);
+  const { refillFlap } = await import('../js/collide.js');
+  const f = createFlight(computeStats({ wings: 2 }), { power: 1 });
+  assert.ok(f.flapMax > createFlight(computeStats({}), { power: 1 }).flapMax, 'wings give more flap');
+  f.flap = 0;
+  refillFlap(f, 99);
+  assert.equal(f.flap, f.flapMax);
+  // The skip autopilot never flaps.
+  const auto = fly((fl) => autopilot(fl));
+  assert.equal(auto.flap, auto.flapMax);
+});

@@ -379,7 +379,7 @@ export function createPig() {
     reassemble,
     get shattered() { return pieces.length > 0; },
     // opts: { skin, tiers, face, boosting, t, squash, flap }
-    update({ skin, tiers, face = 'happy', boosting = false, t = 0, squash = 0, flap = 1 }) {
+    update({ skin, tiers, face = 'happy', boosting = false, flapping = false, t = 0, squash = 0, flap = 1 }) {
       applySkin(skin);
       applyGear(tiers || {});
       setFace(face, t);
@@ -391,7 +391,7 @@ export function createPig() {
       parts.tail.rotation.set(0, Math.sin(t * 6) * 0.4, t * 2);
       for (const p of gear.wings) {
         const s = p.userData.sign;
-        p.rotation.set(-s * (0.5 + Math.sin(t * (boosting ? 18 : 10)) * 0.25 * flap), -s * 0.45, 0);
+        p.rotation.set(-s * (0.5 + Math.sin(t * (flapping ? 30 : boosting ? 18 : 10)) * (flapping ? 0.55 : 0.25) * flap), -s * 0.45, 0);
       }
       if (gear.rocket && gear.rocket.userData.flame) {
         const fl = gear.rocket.userData.flame;

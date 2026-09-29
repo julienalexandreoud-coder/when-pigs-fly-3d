@@ -117,6 +117,10 @@ export function createJuice({ fx, audio, ui }) {
           if (e.kind === 'zoom') { fx.flash('255,255,255', 0.25); audio.launch(true); }
           return { squash: 0.4 };
         }
+        case 'tired':
+          audio.empty();
+          fx.text(e.x ?? f.x, (e.y ?? f.y) + 2 * k, 'TIRED! grab balloons', { color: '#9fe3ff', size: 24 });
+          break;
         case 'combo':
           audio.star();
           ui.combo(e.mult);

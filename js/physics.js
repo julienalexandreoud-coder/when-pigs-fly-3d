@@ -5,7 +5,7 @@ import {
   STEP, LAUNCH_ANGLE, LAUNCH_POS, PIG_R, END_SPEED, TURN_RATE, WEATHERVANE, MAX_SPEED, MAX_LIFT,
   PERFECT_BONUS, MAX_FLIGHT_TIME, MOON_ALT, densityAt, gravityAt, wrapAngle, layerIndexAt, scaleAt, clamp,
 } from './config.js';
-import { collideSky, collideGroundFeatures, stepAbduction, emit, setFace } from './collide.js';
+import { collideSky, collideGroundFeatures, stepAbduction, emit, setFace, refillFlap } from './collide.js';
 
 const TWO_PI = Math.PI * 2;
 const SONIC = 343;
@@ -20,6 +20,14 @@ const FLARE_MIN_SPEED = 7;
 const FLARE_KEEP = 0.88;
 const FLARE_ANGLE = 0.6;
 const HOP_MIN_SPEED = 8;
+// Flapping: holding "fly up" makes Pip flap and really climb, on a small
+// energy bar (seconds) that refills from balloons, coins, gifts and TNT.
+// Only real input flaps (`input.flap`); the autopilot and bot never do.
+export const FLAP_BASE = 2.4;
+export const FLAP_PER_WING = 0.45;
+const FLAP_ACC = 17;
+const FLAP_MAX_CLIMB = 16;
+const FLAP_ANGLE = 0.75;
 // Every full flip kicks the pig forward a little.
 const FLIP_KICK = 7;
 const FLIP_KICK_FRAC = 0.05;
@@ -39,6 +47,9 @@ export function createFlight(stats, { power = 1, perfect = false, golden = false
     rotAcc: 0,
     fuel: fuelMax,
     fuelMax,
+    flap: FLAP_BASE + FLAP_PER_WING * (stats.tiers.wings || 0),
+    flapMax: FLAP_BASE + FLAP_PER_WING * (stats.tiers.wings || 0),
+    flapping: false,
     boosting: false,
     grounded: false,
     done: false,
@@ -118,7 +129,10 @@ function countFlips(f, dTheta) {
 function steer(f, input, gamma, rho, s, dt) {
   const control = f.dizzy > 0 ? 0.35 : 1;
   let dTheta;
-  if (input.pitch) {
+  if (f.flapping) {
+    // While flapping the nose points up the climb instead of spinning in loops.
+    dTheta = wrapAngle(FLAP_ANGLE - f.angle) * Math.min(1, 6 * dt);
+  } else if (input.pitch) {
     dTheta = clamp(input.pitch, -1, 1) * TURN_RATE * control * dt;
   } else {
     const vane = WEATHERVANE * clamp((rho * s) / 15, 0, 1);
@@ -136,6 +150,7 @@ function stepAir(f, input, dt, world) {
   const rho = densityAt(h);
   let s = Math.hypot(f.vx, f.vy);
   const gamma = Math.atan2(f.vy, f.vx);
+  f.flapping = Boolean(input.flap) && f.flap > 0 && !(input.boost && f.fuel > 0);
   steer(f, input, gamma, rho, s, dt);
 
   if (s > 0.05) {
@@ -164,6 +179,12 @@ function stepAir(f, input, dt, world) {
     f.vy += Math.sin(f.angle) * st.thrust * dt;
     f.fuel = Math.max(0, f.fuel - dt);
     if (f.fuel === 0) emit(f, 'empty', {});
+  }
+  if (f.flapping) {
+    if (f.vy < FLAP_MAX_CLIMB) f.vy += FLAP_ACC * dt;
+    f.vx += 2 * dt;
+    f.flap = Math.max(0, f.flap - dt);
+    if (f.flap === 0) emit(f, 'tired', {});
   }
   f.vy -= gravityAt(h) * dt;
 
@@ -256,6 +277,7 @@ function starterBlast(f, groundY) {
   f.rotAcc = 0;
   f.coins += STARTER_COINS;
   f.tnts += 1;
+  refillFlap(f, 1);
   setFace(f, 'scared', 1.2);
   emit(f, 'tnt', { x: f.x, y: groundY + 0.9, coins: STARTER_COINS, surprise: true });
 }

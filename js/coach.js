@@ -7,7 +7,7 @@ import { FLARE_WINDOW } from './physics.js';
 
 const SLOW = 0.1;
 const HOLD_AT = 1.6;
-const KEEP_HOLDING = 1.0;
+const KEEP_HOLDING = 1.6;
 const PRAISE = 1.3;
 const GIVE_UP = 9;
 const FLARE_TTI = 0.3;
@@ -84,22 +84,22 @@ export function createCoach(ui) {
           if (holding) {
             step = 'holding';
             t = 0;
-            show('NICE! NOSE UP = CLIMB', 'keep holding…');
+            show('YOU’RE FLYING!', 'holding flaps your wings (blue FLAP bar)');
           } else if (t > GIVE_UP) stop();
           return { scale: step === 'hold' ? SLOW : 1, done };
         case 'holding':
           if (!holding || t > KEEP_HOLDING) {
             step = holding ? 'letgo' : 'praise';
             t = 0;
-            if (holding) show('NOW LET GO', 'let go = dive and build speed', { release: true });
-            else show('THAT’S IT!', 'hold = up · let go = down', { release: true });
+            if (holding) show('NOW LET GO', 'let go = glide down, save your flaps', { release: true });
+            else show('THAT’S IT!', 'hold = flap up · let go = glide · balloons refill', { release: true });
           }
           return { scale: 1, done };
         case 'letgo':
           if (!holding || t > GIVE_UP / 2) {
             step = 'praise';
             t = 0;
-            show('THAT’S IT!', 'hold = up · let go = down', { release: true });
+            show('THAT’S IT!', 'hold = flap up · let go = glide · balloons refill', { release: true });
           }
           return { scale: holding ? 0.35 : 1, done };
         case 'praise':

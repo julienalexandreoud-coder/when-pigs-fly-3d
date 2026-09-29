@@ -357,13 +357,17 @@ function stepFlightFrame(dt) {
     const back = PIG_R * k * 1.9;
     fx.puff(f.x - Math.cos(f.angle) * back, f.y - Math.sin(f.angle) * back, Math.random() < 0.5 ? '#ffffff' : '#ffd6a5', 6 + k * 2, k);
   }
+  if (f.flapping && Math.random() < 0.3) {
+    const k = scaleAt(f.y);
+    fx.burst(f.x - Math.cos(f.angle) * k, f.y + 0.4 * k, 1, { colors: ['#ffffff', '#ffe7ef'], speed: 5, life: 0.7, size: 5, kind: 'feather', gravity: 3, scale: k });
+  }
   if (f.grounded && Math.abs(f.vx) > 3 && Math.random() < 0.4) {
     fx.burst(f.x, f.y - PIG_R, 1, { colors: ['#b08968', '#8ac926'], speed: 4, life: 0.4, size: 4, gravity: 6 });
   }
   audio.flight({ speed: Math.hypot(f.vx, f.vy), boosting: f.boosting, rocketTier: f.stats.tiers.rocket || 0, active: !f.grounded });
   audio.setAltitude(f.y);
   ui.updateHud({
-    alt: f.y, speed: Math.hypot(f.vx, f.vy), dist: Math.max(0, f.x), coins: f.coins, fuel: f.fuel, fuelMax: f.fuelMax,
+    alt: f.y, speed: Math.hypot(f.vx, f.vy), dist: Math.max(0, f.x), coins: f.coins, fuel: f.fuel, fuelMax: f.fuelMax, flap: f.flap, flapMax: f.flapMax,
     best: Math.max(save.best.alt, S.prevBest), canSkip: canSkip(f) && f.y > 60 && !S.autoplay,
   });
   if (!coach.active && !S.autoplay && updateRush(f, S.world, dt) === 'coins') {
@@ -730,7 +734,7 @@ function draw() {
   renderer.frame({
     ...S, mode: S.mode === 'landed' || S.mode === 'results' ? 'flying' : S.mode,
     fx, skin: skinById(save.skin), tiers: save.upgrades, hasRocket: hasRocket(), bestAlt: Math.max(save.best.alt, S.prevBest),
-    face: f ? f.face : 'happy', boosting: f ? f.boosting : false,
+    face: f ? f.face : 'happy', boosting: f ? f.boosting : false, flapping: Boolean(f && f.flapping && S.mode === 'flying'),
   });
 }
 

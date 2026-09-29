@@ -10,6 +10,11 @@ const TNT_KICK_X = 12;
 const TNT_KICK_Y = 22;
 const TNT_COINS = 5;
 
+// Flap energy (seconds) gained from pickups, capped at the pig's maximum.
+export function refillFlap(f, seconds) {
+  if (f.flapMax) f.flap = Math.min(f.flapMax, (f.flap || 0) + seconds);
+}
+
 export function emit(f, type, data = {}) {
   if (!f.quiet) f.events.push({ type, ...data });
 }
@@ -50,6 +55,7 @@ function hitHazard(f, o, nx, ny) {
 function popBalloon(f, o) {
   f.taken.add(o.id);
   f.vy = Math.max(f.vy, 0) + (o.type === 'wballoon' ? 28 : 13);
+  refillFlap(f, 0.8);
   f.balloons += 1;
   f.chainN = f.t - f.chainT < 3 ? f.chainN + 1 : 1;
   f.chainT = f.t;
@@ -72,6 +78,7 @@ export const GIFTS = ['coins', 'zoom', 'fuel', 'double'];
 export const DOUBLE_TIME = 6;
 function openGift(f, o) {
   f.taken.add(o.id);
+  refillFlap(f, 1.2);
   f.gifts += 1;
   let kind = o.reward;
   if (kind === 'fuel' && f.fuelMax <= 0) kind = 'coins';
@@ -165,6 +172,7 @@ export function collideSky(f, world, dt, scratch) {
         const mult = comboUp(f) * (f.t < f.doubleUntil ? 2 : 1);
         const value = Math.round(o.value * mult);
         f.coins += value;
+        refillFlap(f, 0.06);
         setFace(f, 'happy', 0.4);
         emit(f, 'coin', { x: o.x, y: o.y, value, star: o.star, mult, chain: f.coinChain });
       }
@@ -226,6 +234,7 @@ export function collideGroundFeatures(f, terrain) {
         f.vy = Math.max(f.vy, 0) + TNT_KICK_Y;
         f.coins += TNT_COINS;
         f.tnts += 1;
+        refillFlap(f, 1);
         f.y = Math.max(f.y, hy + ft.r + pr);
         emit(f, 'tnt', { x: ft.x, y: hy, seg: seg.i, coins: TNT_COINS });
         return bounced(f, seg, 'kaboom');

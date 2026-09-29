@@ -142,7 +142,7 @@ export function createUI(handlers) {
     adShade(onOff) { el.adShade.classList.toggle('hidden', !onOff); },
 
     updateHud(h) {
-      const key = `${Math.floor(h.alt)}|${kmh(h.speed)}|${Math.floor(h.dist)}|${h.coins}|${Math.round((h.fuel / (h.fuelMax || 1)) * 100)}|${h.canSkip}`;
+      const key = `${Math.floor(h.alt)}|${kmh(h.speed)}|${Math.floor(h.dist)}|${h.coins}|${Math.round((h.fuel / (h.fuelMax || 1)) * 100)}|${Math.round((h.flap / (h.flapMax || 1)) * 50)}|${h.canSkip}`;
       if (key === lastHud) return;
       lastHud = key;
       el.alt.textContent = formatDistance(Math.max(0, h.alt));
@@ -162,6 +162,14 @@ export function createUI(handlers) {
         const k = h.fuel / h.fuelMax;
         el.fuelFill.style.width = `${k * 100}%`;
         el.fuel.classList.toggle('low', k > 0 && k < 0.2);
+      }
+      const flapBar = $('flapbar');
+      flapBar.classList.toggle('hidden', !h.flapMax);
+      if (h.flapMax) {
+        const k = h.flap / h.flapMax;
+        $('flap-fill').style.width = `${k * 100}%`;
+        flapBar.classList.toggle('low', k > 0 && k < 0.25);
+        flapBar.classList.toggle('empty', k <= 0);
       }
       el.skip.classList.toggle('hidden', !h.canSkip);
       const p = (a) => `${Math.min(100, (Math.max(0, a) / MOON_ALT) * 100)}%`;

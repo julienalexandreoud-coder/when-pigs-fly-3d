@@ -507,3 +507,9 @@ h3.sub { margin: 6px 0 0; font-family: var(--display); font-size: 26px; font-wei
 .goal-chip.done { animation: levelup 0.6s cubic-bezier(.2,1.8,.4,1); background: var(--lime); }
 @media (orientation: portrait) and (max-width: 700px) { .goal-chip { width: 150px; } .goal-chip b { font-size: 17px; } }
 @media (max-height: 520px) and (orientation: landscape) { .goal-chip { width: 160px; } .goal-chip b { font-size: 16px; } .combo { top: 118px; } }
+
+/* flap energy: holding "fly up" spends it, pickups refill it */
+.flapbar .fuel-label { color: #9fe3ff; }
+.flapbar .fuel-fill { background: repeating-linear-gradient(-45deg, #26e0ff 0 10px, #9fe3ff 10px 20px); }
+.flapbar.low .fuel-fill { animation: blink 0.3s steps(2) infinite; }
+.flapbar.empty .fuel-track { opacity: 0.5; }
