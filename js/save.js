@@ -56,6 +56,7 @@ export function sanitize(raw) {
     flights: int(src.flights, 1e8),
     moon,
     lastPayout: int(src.lastPayout),
+    goal: int(src.goal, 1e6),
     muted: src.muted === true,
     tips: Object.freeze(tips),
     daily: sanitizeDaily(src.daily),

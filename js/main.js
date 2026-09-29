@@ -22,6 +22,7 @@ import { createJuice } from './juice.js';
 import { botInput } from './bot.js';
 import { createCoach, landingCue } from './coach.js';
 import { updateRush } from './rush.js';
+import { goalAt, goalReward, goalValue, goalText } from './goals.js';
 
 const PARAMS = new URLSearchParams(location.search);
 const DEBUG = PARAMS.has('debug');
@@ -64,7 +65,7 @@ const QUICK_PAUSE = 1.4;
 const STARTER_POWER = 0.9;
 const starterBlastsFor = (flights) => (flights < 2 ? 2 : flights < 5 ? 1 : 0);
 // Distance milestones pay a little bonus the moment they are crossed.
-const MILESTONES = [25, 50, 100, 150, 200, 300, 400, 500, 750, 1000, 1500, 2000, 3000, 5000, 7500, 10000];
+const MILESTONES = [25, 50, 150, 250, 300, 400, 600, 900, 1250, 2500, 4000, 7500, 10000];
 const milestoneBonus = (m) => Math.max(2, Math.round(m / 25));
 const RESULTS_KEY_DELAY = 600;
 const canAds = () => (ADS_ENABLED && Sdk.available) || (DEBUG && PARAMS.has('ads'));
@@ -279,9 +280,33 @@ function milestoneCheck() {
   flyCoins(f.x, f.y, Math.min(5, 1 + Math.floor(bonus / 4)));
 }
 
+// Goal ladder: always one short target on screen; hitting it celebrates,
+// pays, and shows the next one immediately (several can fall in one flight).
+function goalCheck() {
+  const f = S.flight;
+  const g = goalAt(save.goal);
+  const v = goalValue(g, f);
+  if (v < g.v) {
+    ui.goalChip(goalText(g), v / g.v);
+    return;
+  }
+  const reward = goalReward(g);
+  persist(update(addCoins(save, reward), { goal: save.goal + 1 }));
+  audio.medal();
+  fx.flash('184,255,46', 0.25);
+  fx.burst(f.x, f.y, 30, { colors: ['#b8ff2e', '#ffd23f', '#ff7aa2', '#26e0ff'], speed: 16, life: 1.1, size: 7, kind: 'confetti', gravity: 8, scale: scaleAt(f.y) });
+  // Never stack on top of a coaching lesson: use floating text then.
+  if (coach.active) fx.text(f.x, f.y + 5 * scaleAt(f.y), `GOAL COMPLETE! +${formatInt(reward)}`, { color: '#b8ff2e', size: 34, life: 1.4 });
+  else ui.banner('GOAL COMPLETE!', `${goalText(g)} · +${formatInt(reward)} coins`, 1400);
+  flyCoins(f.x, f.y, 6);
+  const next = goalAt(save.goal);
+  ui.goalChip(goalText(next), goalValue(next, f) / next.v, true);
+}
+
 function liveChecks() {
   const f = S.flight;
   milestoneCheck();
+  goalCheck();
   sixSevenChecks();
   for (const m of save.missions.active) {
     if (!S.shownMissions.has(m.kind) && missionDone(m, f)) {

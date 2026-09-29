@@ -107,6 +107,16 @@ export function createUI(handlers) {
         el.coinPill.classList.add('bump');
       }, 520 + delay);
     },
+    goalChip(text, k, done = false) {
+      $('goal-chip-text').textContent = text;
+      $('goal-chip-fill').style.width = `${Math.round(Math.min(1, Math.max(0, k)) * 100)}%`;
+      const chip = $('goal-chip');
+      if (done) {
+        chip.classList.remove('done');
+        void chip.offsetWidth;
+        chip.classList.add('done');
+      }
+    },
     boostEmpty(empty) { el.boostBtn.classList.toggle('empty', empty); },
     combo(mult) {
       const on = mult > 1;

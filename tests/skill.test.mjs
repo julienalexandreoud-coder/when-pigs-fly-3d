@@ -218,3 +218,24 @@ test('starter TNT turns a new player first touchdown into a long flight', () => 
   assert.ok(f.t > 10, `first flight lasted ${f.t}s`);
   assert.ok(f.distance > plain.distance * 2, `${f.distance} vs ${plain.distance}`);
 });
+
+test('goal ladder: short first goals, rewards, and it never runs out', async () => {
+  const { goalAt, goalReward, goalText } = await import('../js/goals.js');
+  assert.equal(goalAt(0).v, 100);
+  assert.ok(goalReward(goalAt(0)) > 0);
+  let prevDist = 0;
+  for (let i = 0; i < 60; i++) {
+    const g = goalAt(i);
+    assert.ok(g.v > 0 && goalText(g).length > 3);
+    if (g.kind === 'dist') { assert.ok(g.v > prevDist, `dist goals rise at ${i}`); prevDist = g.v; }
+  }
+});
+
+test('the starter zone puts balloons and coins low over the first 450 m', () => {
+  const world = createWorld(3);
+  const objs = world.query(100, 0, 480, 80);
+  const balloons = objs.filter((o) => o.type === 'balloon' && String(o.id).startsWith('start:'));
+  const coins = objs.filter((o) => o.type === 'coin' && String(o.id).startsWith('start:') && o.x > 100);
+  assert.ok(balloons.length >= 6, `${balloons.length} balloons`);
+  assert.ok(coins.length >= 25, `${coins.length} coins`);
+});

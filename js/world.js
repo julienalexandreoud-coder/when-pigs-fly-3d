@@ -24,10 +24,25 @@ const NO_HAZARD_X = 90;
 export const HAZARDS = new Set(['goose', 'thunder', 'satellite', 'asteroid']);
 export const FIELDS = new Set(['updraft', 'jetstream']);
 
-// Coins along the first flights' arc so the very first launch pays something.
-function starterTrail(coin, terrain) {
-  for (let x = 5; x <= 45; x += 4) coin(x, LAUNCH_POS.y + 1 + x * 0.781 - x * x * 0.0273, 1);
-  for (let x = 36; x <= 116; x += 5) coin(x, terrain.height(x) + 1.6, 1);
+// The starter zone: coins along the first flights' arc, then balloons and
+// coin lines low over the first ~450 m, where new players actually fly, so
+// the first flights pop and collect something every second.
+function starterZone(spawn, terrain, seed) {
+  let n = 0;
+  const id = () => `start:${n++}`;
+  const coin = (x, y) => {
+    if (y >= terrain.height(x) + 1.4) spawn({ id: id(), type: 'coin', x, y, r: 0.55, value: 1, star: false });
+  };
+  for (let x = 5; x <= 45; x += 4) coin(x, LAUNCH_POS.y + 1 + x * 0.781 - x * x * 0.0273);
+  for (let x = 36; x <= 116; x += 5) coin(x, terrain.height(x) + 1.6);
+  const rng = mulberry32(hash(seed, 4242));
+  for (let x = 120; x <= 460; x += 38 + rng() * 14) {
+    const g = terrain.height(x);
+    const y = g + 8 + rng() * 20;
+    spawn({ id: id(), type: 'balloon', x, y, r: 1.3, color: BALLOON_COLORS[Math.floor(rng() * BALLOON_COLORS.length)] });
+    const cy = g + 3 + rng() * 9;
+    for (let k = 1; k <= 5; k++) coin(x + 4 + k * 2.6, cy + Math.sin(k * 0.8) * 1.2);
+  }
 }
 
 export function createWorld(seed) {
@@ -137,7 +152,6 @@ export function createWorld(seed) {
       },
     };
 
-    if (b === 0 && cx === 0 && cy === 0) starterTrail(coin, terrain);
     if (rng() < COIN_P[b]) coinPattern();
     if (b === 0 && y1 < FEATURE_FLOOR + 22 + 4 * S) return out;
     for (let k = 0; k < 2; k++) {
@@ -188,5 +202,6 @@ export function createWorld(seed) {
     return out;
   }
 
+  starterZone(spawn, terrain, seed);
   return { seed, terrain, query, spawn };
 }
