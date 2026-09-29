@@ -87,7 +87,7 @@ export function createJuice({ fx, audio, ui }) {
           fx.shake(5);
           fx.ring(e.x, e.y, '184,255,46', 160);
           fx.burst(e.x, e.y, 18, { colors: ['#b8ff2e', '#ffffff', '#8ac926'], speed: 10, life: 0.6, size: 6, kind: 'confetti', gravity: 8 });
-          const label = e.type === 'hop' ? 'HOP!' : e.n >= 3 ? `BOUNCE x${e.n}!` : 'PERFECT BOUNCE!';
+          const label = e.left === 0 ? 'LAST BOUNCE!' : e.type === 'hop' ? 'HOP!' : e.n >= 2 ? `BOUNCE x${e.n}!` : 'PERFECT BOUNCE!';
           fx.text(e.x, e.y + 2, `${label} +${TRICKS.flare}`, { color: '#b8ff2e', size: 30 });
           if (e.n >= 4) fx.text(e.x, e.y - 1, pick(AURA), { color: '#ffd23f', size: 24, life: 1.2 });
           return { squash: 0.45 };

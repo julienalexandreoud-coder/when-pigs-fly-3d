@@ -88,12 +88,13 @@ test('flares pay trick coins', () => {
 
 test('landing cue turns on near the ground and says "now" inside the flare window', () => {
   const ground = () => 0;
-  const falling = { vx: 10, vy: -10, y: 0.9 + 3, x: 0, done: false, grounded: false, abduct: null };
+  const falling = { vx: 10, vy: -10, y: 0.9 + 3, x: 0, done: false, grounded: false, abduct: null, stats: computeStats({}), flares: 0 };
   const cue = landingCue(falling, ground);
   assert.equal(cue.now, true);
   assert.equal(landingCue({ ...falling, y: 0.9 + 50 }, ground), null);
   assert.equal(landingCue({ ...falling, vy: 5 }, ground), null);
   assert.equal(landingCue({ ...falling, grounded: true, vx: 12 }, ground).hop, true);
+  assert.equal(landingCue({ ...falling, flares: 3 }, ground), null, 'no cue once the bounces are used up');
 });
 
 function fakeUi() {
@@ -255,4 +256,21 @@ test('holding "fly up" flaps: a new player really climbs, energy runs out and re
   // The skip autopilot never flaps.
   const auto = fly((fl) => autopilot(fl));
   assert.equal(auto.flap, auto.flapMax);
+});
+
+test('bounces are limited per flight and each one is weaker', async () => {
+  const { flareLimit } = await import('../js/physics.js');
+  const f = fly(flarePilot);
+  assert.equal(f.flares, flareLimit(f.stats));
+  assert.equal(flareLimit(computeStats({})), 3);
+  assert.ok(flareLimit(computeStats({ belly: 5 })) <= 5);
+  const speeds = [];
+  const world = createWorld(7);
+  const g = createFlight(computeStats({ launcher: 5 }), { power: 1 });
+  for (let i = 0; i < 120 * 120 && !g.done; i++) {
+    stepFlight(g, flarePilot(g, world), STEP, world);
+    for (const e of g.events) if (e.type === 'flare' || e.type === 'hop') speeds.push(e.speed);
+    g.events.length = 0;
+  }
+  assert.ok(speeds.length <= 3, `${speeds.length} bounces`);
 });

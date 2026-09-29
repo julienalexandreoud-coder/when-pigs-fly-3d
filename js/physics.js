@@ -18,6 +18,13 @@ const SKIM_ANGLE = 0.45;
 export const FLARE_WINDOW = 0.45;
 const FLARE_MIN_SPEED = 7;
 const FLARE_KEEP = 0.88;
+// Bounces are limited per flight (more with the Bouncy Belly) and each one
+// keeps less speed than the last, so bouncing can't carry a flight forever.
+const FLARE_BASE = 3;
+const FLARE_DECAY = 0.12;
+const FLARE_MAX = 5;
+export const flareLimit = (stats) => Math.min(FLARE_MAX, FLARE_BASE + Math.floor((stats.tiers.belly || 0) / 2));
+export const flaresLeft = (f) => Math.max(0, flareLimit(f.stats) - f.flares);
 const FLARE_ANGLE = 0.6;
 const HOP_MIN_SPEED = 8;
 // Flapping: holding "fly up" makes Pip flap and really climb, on a small
@@ -261,7 +268,7 @@ function groundContact(f, terrain) {
   setFace(f, 'splat', 9);
 }
 
-const flareReady = (f) => f.t - f.pressT <= FLARE_WINDOW;
+const flareReady = (f) => f.t - f.pressT <= FLARE_WINDOW && flaresLeft(f) > 0;
 
 // A hidden TNT charge goes off where the pig lands (first flights only):
 // the new player's first touchdown is an explosion, not a flop.
@@ -284,7 +291,7 @@ function starterBlast(f, groundY) {
 
 // Perfect bounce off the ground at a fixed climb angle, keeping most speed.
 function flare(f, groundAngle, speed, kind) {
-  const s = speed * FLARE_KEEP;
+  const s = speed * (FLARE_KEEP - FLARE_DECAY * f.flares);
   const a = groundAngle + FLARE_ANGLE;
   f.vx = Math.cos(a) * s;
   f.vy = Math.sin(a) * s;
@@ -295,7 +302,7 @@ function flare(f, groundAngle, speed, kind) {
   f.bounces += 1;
   f.y += 0.05;
   setFace(f, 'happy', 0.9);
-  emit(f, kind, { x: f.x, y: f.y, n: f.flares, speed: s });
+  emit(f, kind, { x: f.x, y: f.y, n: f.flares, speed: s, left: flaresLeft(f) });
 }
 
 function bounce(f, nx, ny, vn, vt, restitution, keepT, kind) {

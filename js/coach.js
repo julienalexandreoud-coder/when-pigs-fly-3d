@@ -3,7 +3,7 @@
 // controls explained. Also computes the "TAP!" landing cue shown every flight.
 
 import { PIG_R } from './config.js';
-import { FLARE_WINDOW } from './physics.js';
+import { FLARE_WINDOW, flaresLeft } from './physics.js';
 
 const SLOW = 0.1;
 const HOLD_AT = 1.6;
@@ -24,7 +24,7 @@ export function timeToImpact(f, groundAt) {
 // Landing cue for the renderer: k grows 0..1 as the ground gets close;
 // `now` means a tap right now will bounce.
 export function landingCue(f, groundAt) {
-  if (!f || f.done || f.abduct) return null;
+  if (!f || f.done || f.abduct || flaresLeft(f) <= 0) return null;
   if (f.grounded) return Math.abs(f.vx) >= MIN_HOP_SPEED ? { k: 1, now: true, hop: true } : null;
   if (Math.hypot(f.vx, f.vy) < MIN_FLARE_SPEED) return null;
   const tti = timeToImpact(f, groundAt);
