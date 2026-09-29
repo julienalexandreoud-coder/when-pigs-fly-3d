@@ -204,3 +204,17 @@ test('double-coins gift doubles coin value for a while', async () => {
   collideSky(f, world, STEP, []);
   assert.equal(f.coins - before, 6);
 });
+
+test('starter TNT turns a new player first touchdown into a long flight', () => {
+  const plain = fly((f) => ({ pitch: 0, boost: false }));
+  const world = createWorld(7);
+  const f = createFlight(computeStats({}), { power: 0.9, starterBlasts: 2 });
+  for (let i = 0; i < 120 * 120 && !f.done; i++) {
+    stepFlight(f, { pitch: 0, boost: false }, STEP, world);
+    f.events.length = 0;
+  }
+  assert.equal(f.starterBlasts, 0);
+  assert.equal(f.tnts, 2);
+  assert.ok(f.t > 10, `first flight lasted ${f.t}s`);
+  assert.ok(f.distance > plain.distance * 2, `${f.distance} vs ${plain.distance}`);
+});

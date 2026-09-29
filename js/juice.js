@@ -102,7 +102,7 @@ export function createJuice({ fx, audio, ui }) {
           fx.ring(e.x, e.y, '255,176,32', 260);
           fx.debris(e.x, floor + 1, 26, { colors: ['#e63946', '#ffd23f', '#3a2a2a', '#ff7b00'], speed: 18, size: 0.5, floor });
           fx.burst(e.x, e.y, 30, { colors: ['#ffe45c', '#ffb703', '#ff7b00', '#ffffff'], speed: 16, life: 0.9, size: 7, kind: 'spark', gravity: 4 });
-          fx.text(e.x, e.y + 4, `${pick(['KABOOM!', 'TNT GO BRRR', 'YEETED'])} +${e.coins}`, { color: '#ffb020', size: 42, life: 1.4 });
+          fx.text(e.x, e.y + 4, `${e.surprise ? 'SURPRISE TNT!' : pick(['KABOOM!', 'TNT GO BRRR', 'YEETED'])} +${e.coins}`, { color: '#ffb020', size: 42, life: 1.4 });
           return { squash: 0.5 };
         }
         case 'gift': {

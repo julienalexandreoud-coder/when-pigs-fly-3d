@@ -56,6 +56,13 @@ const S = {
 const ADS_ENABLED = false;
 const FIRST_AUTOLAUNCH_S = 7;
 const END_PAUSE = 0.55;
+// New players: the first flights skip the results card (straight back to the
+// launcher), start with surprise TNT under the landing spot, and never launch
+// too weakly. Flight 1 also ends with a free upgrade.
+const QUICK_FLIGHTS = 3;
+const QUICK_PAUSE = 1.4;
+const STARTER_POWER = 0.9;
+const starterBlastsFor = (flights) => (flights < 2 ? 2 : flights < 5 ? 1 : 0);
 // Distance milestones pay a little bonus the moment they are crossed.
 const MILESTONES = [25, 50, 100, 150, 200, 300, 400, 500, 750, 1000, 1500, 2000, 3000, 5000, 7500, 10000];
 const milestoneBonus = (m) => Math.max(2, Math.round(m / 25));
@@ -121,7 +128,7 @@ function newReady() {
   ui.hint(null);
   S.readyT = 0;
   ui.ready(save, { golden: S.golden, goldenOffer: canAds() && hasRocket() && save.flights >= 2 });
-  ui.tapText(save.flights === 0 ? 'TAP ANYWHERE TO LAUNCH!' : 'Tap / SPACE to YEET');
+  ui.tapText(save.flights < 2 ? 'TAP ANYWHERE TO LAUNCH!' : 'Tap / SPACE to YEET');
   maybeShowDaily();
   // The launch screen is playable (timing the power meter), so it counts as gameplay.
   Sdk.gameplayStart();
@@ -129,7 +136,7 @@ function newReady() {
 
 // Daily chest: offered on the launch screen once per day, from the second visit on.
 function maybeShowDaily() {
-  if (save.flights < 1 || S.adBusy) return;
+  if (save.flights < QUICK_FLIGHTS || S.adBusy) return;
   const st = dailyStatus(save, dayKey());
   if (!st.available) return;
   S.modal = true;
@@ -154,7 +161,8 @@ function launch() {
   const v = needleAt(S.meterT, meterPeriod(save.flights));
   const zone = launchZone(v);
   const stats = statsOf(save);
-  S.flight = createFlight(stats, { power: launchPower(v), perfect: zone === 'perfect', golden: S.golden });
+  const power = save.flights < 2 ? Math.max(launchPower(v), STARTER_POWER) : launchPower(v);
+  S.flight = createFlight(stats, { power, perfect: zone === 'perfect', golden: S.golden, starterBlasts: starterBlastsFor(save.flights) });
   S.golden = false;
   S.prevBest = save.best.alt;
   S.recordShown = false;
@@ -347,7 +355,8 @@ function stepFlightFrame(dt) {
 function flightOver() {
   const f = S.flight;
   S.mode = 'landed';
-  S.endTimer = f.moon ? 1.0 : END_PAUSE;
+  S.quick = !f.moon && save.flights < QUICK_FLIGHTS;
+  S.endTimer = f.moon ? 1.0 : S.quick ? QUICK_PAUSE : END_PAUSE;
   S.cue = null;
   S.coachScale = 1;
   coach.stop();
@@ -401,6 +410,27 @@ function quickUpgrade() {
   const goal = nextGoal(save);
   ui.panels.goalBar(goal ? { name: goal.name, cost: goal.cost, have: save.coins } : null);
   ui.badge(affordableCount(save));
+}
+
+// First flights: no results card. Coins, quests and records were already
+// counted in flightOver; show a short toast and go straight back to launching.
+function quickReturn() {
+  // Quests were already toasted mid-flight (liveChecks); medals were not.
+  const { payout: pay, medals } = S.result;
+  for (const m of medals) ui.toast(`Medal: <b>${m.name}</b> +${formatInt(m.reward)}`);
+  const free = save.flights === 1 && (save.upgrades.launcher || 0) === 0;
+  newReady();
+  ui.toast(`<b>+${formatInt(pay.total)}</b> coins! You have <b>${formatInt(save.coins)}</b>`);
+  if (free) freeUpgrade();
+}
+
+// A gift after the very first flight: the next launch visibly goes farther.
+function freeUpgrade() {
+  persist(update(save, { upgrades: { ...save.upgrades, launcher: 1 } }));
+  audio.medal();
+  fx.flash('184,255,46', 0.3);
+  ui.banner('FREE UPGRADE!', `${upgradeById('launcher').levels[1].name}: launch way harder`, 2200);
+  ui.ready(save, { golden: S.golden, goldenOffer: canAds() && hasRocket() && save.flights >= 2 });
 }
 
 function resultsView() {
@@ -656,6 +686,8 @@ function tick(realDt) {
         S.mode = 'moon';
         ui.hud(false);
         ui.show('moonwin');
+      } else if (S.quick) {
+        quickReturn();
       } else {
         showResults();
       }

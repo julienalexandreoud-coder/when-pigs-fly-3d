@@ -24,7 +24,8 @@ const HOP_MIN_SPEED = 8;
 const FLIP_KICK = 7;
 const FLIP_KICK_FRAC = 0.05;
 
-export function createFlight(stats, { power = 1, perfect = false, golden = false } = {}) {
+// `starterBlasts`: surprise TNT blasts off the ground for a new player's first flights.
+export function createFlight(stats, { power = 1, perfect = false, golden = false, starterBlasts = 0 } = {}) {
   const speed = stats.launchSpeed * power * (perfect ? PERFECT_BONUS : 1);
   const fuelMax = stats.thrust > 0 ? stats.fuel * (golden ? 2 : 1) : 0;
   return {
@@ -77,6 +78,7 @@ export function createFlight(stats, { power = 1, perfect = false, golden = false
     pressT: -9,
     upHeld: false,
     flares: 0,
+    starterBlasts,
     tnts: 0,
     gifts: 0,
     doubleUntil: -9,
@@ -199,6 +201,10 @@ function groundContact(f, terrain) {
     flare(f, Math.atan(slope), speed, 'flare');
     return;
   }
+  if (f.starterBlasts > 0 && surface !== 'pond') {
+    starterBlast(f, gy);
+    return;
+  }
 
   if (surface === 'mud') {
     f.vx = 0;
@@ -235,6 +241,24 @@ function groundContact(f, terrain) {
 }
 
 const flareReady = (f) => f.t - f.pressT <= FLARE_WINDOW;
+
+// A hidden TNT charge goes off where the pig lands (first flights only):
+// the new player's first touchdown is an explosion, not a flop.
+const STARTER_KICK_X = 16;
+const STARTER_KICK_Y = 20;
+const STARTER_COINS = 5;
+function starterBlast(f, groundY) {
+  f.starterBlasts -= 1;
+  f.vx = Math.max(f.vx, 8) + STARTER_KICK_X;
+  f.vy = Math.max(f.vy, 0) + STARTER_KICK_Y;
+  f.y = groundY + PIG_R + 0.3;
+  f.grounded = false;
+  f.rotAcc = 0;
+  f.coins += STARTER_COINS;
+  f.tnts += 1;
+  setFace(f, 'scared', 1.2);
+  emit(f, 'tnt', { x: f.x, y: groundY + 0.9, coins: STARTER_COINS, surprise: true });
+}
 
 // Perfect bounce off the ground at a fixed climb angle, keeping most speed.
 function flare(f, groundAngle, speed, kind) {
