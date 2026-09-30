@@ -66,15 +66,17 @@ export function createUI(handlers) {
     hud(visible) { el.hud.classList.toggle('hidden', !visible); },
     // In-flight controls: boost button (with a rocket) and a legend that
     // always says exactly what to press. The pause screen repeats it.
-    controls(visible, { rocket = false, touch = false } = {}) {
+    // `legend`: show the on-screen legend (phones only for the first flights;
+    // the pause screen always lists the controls).
+    controls(visible, { rocket = false, touch = false, legend: showLegend = true } = {}) {
       document.body.classList.toggle('touch-ui', touch);
       el.boostBtn.classList.toggle('hidden', !visible || !rocket);
-      el.controls.classList.toggle('hidden', !visible);
+      el.controls.classList.toggle('hidden', !visible || !showLegend);
+      el.controls.classList.toggle('compact', touch);
       if (visible) {
         const k = (...keys) => keys.map((key) => `<kbd>${key}</kbd>`).join('');
         const legend = touch
-          ? `<span><b>HOLD screen</b> = fly up</span><span><b>LET GO</b> = dive</span>`
-            + `<span><b>TAP</b> before landing = bounce</span>${rocket ? '<span><b>🚀 button</b> = boost</span>' : ''}`
+          ? `<span><b>HOLD</b> = fly up · <b>LET GO</b> = glide · <b>TAP</b> before landing = bounce${rocket ? ' · <b>🚀</b> = boost' : ''}</span>`
           : `<span>HOLD ${k('W', 'A', '↑', '←')}${rocket ? '' : k('SPACE')} or click = fly up</span>`
             + `<span>${k('S', 'D', '↓', '→')} or let go = dive</span>`
             + `<span><b>TAP</b> just before landing = bounce</span>`

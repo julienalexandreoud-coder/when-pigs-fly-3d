@@ -526,3 +526,8 @@ h3.sub { margin: 6px 0 0; font-family: var(--display); font-size: 26px; font-wei
 .flapbar .fuel-fill { background: repeating-linear-gradient(-45deg, #26e0ff 0 10px, #9fe3ff 10px 20px); }
 .flapbar.low .fuel-fill { animation: blink 0.3s steps(2) infinite; }
 .flapbar.empty .fuel-track { opacity: 0.5; }
+
+/* phones: one small line, never a block of chips over the game */
+.controls.compact { max-width: min(92vw, 520px); width: auto; }
+.controls.compact span { white-space: normal; text-align: center; font-size: 12px; line-height: 1.35; padding: 4px 10px 3px; }
+.controls.compact span b { font-size: 13px; }

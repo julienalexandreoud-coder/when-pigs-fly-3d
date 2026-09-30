@@ -18,8 +18,15 @@ export function createInput(canvas, { onAction, onPause, isTyping }) {
   const pointers = new Set();
   let boostHeld = false;
   let hasRocket = false;
-  let usedTouch = false;
+  // Phones/tablets start in touch mode (the first touch may land on a button,
+  // not the canvas); after that the last thing used decides: finger = touch,
+  // mouse or keyboard = PC.
+  let usedTouch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
   let pressed = false;
+  window.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch' || e.pointerType === 'pen') usedTouch = true;
+    else if (e.pointerType === 'mouse') usedTouch = false;
+  }, { capture: true, passive: true });
   let pitched = false;
   let boosted = false;
 
@@ -30,6 +37,7 @@ export function createInput(canvas, { onAction, onPause, isTyping }) {
       onPause();
       return;
     }
+    usedTouch = false;
     if (e.repeat) {
       // A key still held after launch cleared the input keeps working.
       keys.add(e.code);

@@ -59,6 +59,8 @@ const ADS_ENABLED = false;
 // New players get a big LAUNCH button; if nobody clicks for a few seconds it
 // grows and shakes. It never launches by itself.
 const IDLE_NUDGE_S = 3;
+// On phones the controls legend only shows for the first flights (it covers the view).
+const TOUCH_LEGEND_FLIGHTS = 3;
 const END_PAUSE = 0.55;
 // New players: the first flights skip the results card (straight back to the
 // launcher), start with surprise TNT under the landing spot, and never launch
@@ -219,7 +221,8 @@ function nudgeIdle(realDt) {
 
 function showFlightControls() {
   input.setRocket(hasRocket());
-  ui.controls(true, { rocket: hasRocket(), touch: input.usedTouch });
+  const touch = input.usedTouch;
+  ui.controls(true, { rocket: hasRocket(), touch, legend: !touch || save.flights < TOUCH_LEGEND_FLIGHTS });
 }
 
 function setHint(kind, text, seconds) {
