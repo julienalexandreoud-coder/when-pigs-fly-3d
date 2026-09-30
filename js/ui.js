@@ -45,6 +45,8 @@ export function createUI(handlers) {
   on('btn-moon-ok', handlers.onMoonOk);
   on('btn-daily', handlers.onDaily);
   on('btn-launch', handlers.onLaunch);
+  // Side quests stay folded on the launch screen until asked for.
+  on('btn-quests', () => $('ready').classList.toggle('quests-open'));
   on('btn-barn-yeet', handlers.onYeet);
   on('btn-records-yeet', handlers.onYeet);
   // Buttons must not leak pointer events to the canvas (that would launch or steer).
@@ -68,11 +70,11 @@ export function createUI(handlers) {
     // always says exactly what to press. The pause screen repeats it.
     // `legend`: show the on-screen legend (phones only for the first flights;
     // the pause screen always lists the controls).
-    controls(visible, { rocket = false, touch = false, legend: showLegend = true } = {}) {
+    controls(visible, { rocket = false, touch = false, legend: showLegend = true, short = false } = {}) {
       document.body.classList.toggle('touch-ui', touch);
       el.boostBtn.classList.toggle('hidden', !visible || !rocket);
       el.controls.classList.toggle('hidden', !visible || !showLegend);
-      el.controls.classList.toggle('compact', touch);
+      el.controls.classList.toggle('compact', touch || short);
       if (visible) {
         const k = (...keys) => keys.map((key) => `<kbd>${key}</kbd>`).join('');
         const legend = touch
@@ -82,7 +84,10 @@ export function createUI(handlers) {
             + `<span><b>TAP</b> just before landing = bounce</span>`
             + (rocket ? `<span>${k('SPACE')} = boost</span>` : '')
             + `<span>${k('ESC')} = pause</span>`;
-        el.controls.innerHTML = legend;
+        // Experienced PC players get a one-line reminder; the pause card keeps the full list.
+        el.controls.innerHTML = !touch && short
+          ? `<span>HOLD ${k('W')}${k('↑')} or click = fly up · let go = dive${rocket ? ` · ${k('SPACE')} = boost` : ''} · ${k('ESC')} = pause</span>`
+          : legend;
         $('pause-controls').innerHTML = legend;
       }
       if (!visible) this.combo(1);
@@ -202,6 +207,10 @@ export function createUI(handlers) {
       el.readyMedal.textContent = save.moon
         ? 'You reached the Moon! Go for records and medals.'
         : m ? `Next medal: ${m.name} (${medalText(m)}) +${formatInt(m.reward)}` : '';
+      $('ready').classList.remove('quests-open');
+      const qb = $('quests-badge');
+      qb.textContent = String(save.missions.active.length);
+      qb.classList.toggle('hidden', !save.missions.active.length);
       el.missions.innerHTML = '<h4>SIDE QUESTS</h4>' + save.missions.active.map((mi) => `
         <div class="mission"><div class="m-text">${missionText(mi)}</div><div class="m-reward"><span class="coin-icon"></span>${formatInt(mi.reward)}</div></div>`).join('');
       this.badge(affordableCount(save));

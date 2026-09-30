@@ -531,3 +531,72 @@ h3.sub { margin: 6px 0 0; font-family: var(--display); font-size: 26px; font-wei
 .controls.compact { max-width: min(92vw, 520px); width: auto; }
 .controls.compact span { white-space: normal; text-align: center; font-size: 12px; line-height: 1.35; padding: 4px 10px 3px; }
 .controls.compact span b { font-size: 13px; }
+
+/* ---------- launch screen for returning players: calm, pig in view ----------
+   Logo + one compact row (coins + Moon progress) at the top, the shop and two
+   small buttons on the side, quests folded away, the middle left free. */
+.side-row { display: flex; gap: 8px; }
+.side-row .btn.small { flex: 1; font-size: 16px; padding: 6px 6px 4px; min-height: 40px; position: relative; white-space: nowrap; }
+.ready:not(.first) .goal-hint { display: none; }
+.ready:not(.first) .logo { font-size: clamp(30px, 4.6vw, 58px); margin-bottom: 4px; }
+.ready:not(.first) .ready-stats { display: inline-flex; vertical-align: middle; margin: 0 8px 0 0; }
+.ready:not(.first) .ready-stats > div:first-child { display: none; }
+.ready:not(.first) .ready-stats > div { padding: 2px 12px 0; }
+.ready:not(.first) .ready-stats small { display: none; }
+.ready:not(.first) .ready-stats b { font-size: 24px; }
+.ready:not(.first) .moon-goal { vertical-align: middle; margin-top: 0; width: min(62vw, 330px); padding: 5px 12px 6px; }
+.ready:not(.first) .mg-label { font-size: 15px; }
+.ready:not(.first) .mg-text { font-size: 11px; }
+.ready:not(.first) .missions { display: none; }
+.ready:not(.first).quests-open .missions { display: flex; z-index: 3; }
+.ready:not(.first) .ready-side { width: 190px; gap: 10px; }
+@media (max-height: 520px) and (orientation: landscape) {
+  .ready:not(.first) .logo { font-size: 24px; }
+  .ready:not(.first) .moon-goal { width: min(46vw, 280px); padding: 3px 10px 4px; }
+  .ready:not(.first) .mg-text { display: none; }
+  .ready:not(.first) .ready-stats b { font-size: 20px; }
+  .ready:not(.first) .ready-side { width: 160px; top: auto; bottom: 14px; transform: none; }
+  .side-row .btn.small { font-size: 13px; min-height: 34px; }
+  .ready:not(.first).quests-open .missions { top: 50%; bottom: auto; transform: translateY(-50%); }
+}
+@media (orientation: portrait) and (max-width: 700px) {
+  .ready:not(.first) .ready-stats { display: flex; margin: 0 0 6px; justify-content: center; }
+  .ready:not(.first) .moon-goal { width: 92vw; }
+  .ready:not(.first) .ready-side { flex-direction: column; flex-wrap: nowrap; width: min(80vw, 320px); }
+  .ready:not(.first) .ready-side .btn { flex: none; }
+  .ready:not(.first).quests-open .missions { bottom: calc(142px + 118px); }
+}
+
+/* results: the flight lines as small tiles in two columns (fits small windows) */
+.lines { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.lines li { grid-template-columns: 1fr auto; gap: 2px 6px; padding: 4px 8px 3px; font-size: 13px; }
+.lines li .d { grid-column: 1; grid-row: 2; font-size: 11px; line-height: 1.1; }
+.lines li .n { grid-column: 2; grid-row: 1 / span 2; align-self: center; min-width: 0; font-size: 18px; }
+.lines li:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+/* short landscape windows (small browser, phone sideways): results card goes
+   wide and two-column so the total, hints and buttons fit without scrolling */
+@media (max-height: 520px) and (orientation: landscape) {
+  #results .card {
+    width: min(660px, 96vw); display: grid; grid-template-columns: 1.15fr 1fr; column-gap: 12px; row-gap: 6px;
+    grid-template-areas: "title title" "lines extra" "lines actions" "total goal" "foot foot"; align-items: start; padding: 12px 16px 14px;
+  }
+  #results .card h2 { grid-area: title; font-size: 30px; }
+  #results .cause { display: none; }
+  #results .lines { grid-area: lines; }
+  #results .total { grid-area: total; font-size: 20px; padding: 2px 4px; }
+  #results .total b { font-size: 28px; }
+  #results .extra { grid-area: extra; gap: 4px; }
+  #results .extra .pill { font-size: 12px; padding: 4px 8px 3px; }
+  #results .progress-block { grid-area: goal; }
+  #results .actions { grid-area: actions; margin-top: 0; gap: 6px; }
+  #results .btn.quick { font-size: 16px; min-height: 42px; }
+  #results .row.foot { grid-area: foot; margin: 2px -16px -14px; padding: 8px 16px 10px; }
+  #results .btn.yeet { font-size: 24px; min-height: 48px; }
+  .lines li { padding: 3px 7px 2px; font-size: 12px; }
+  .lines li .n { font-size: 16px; }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .controls.compact { bottom: 70px; max-width: 70vw; }
+}

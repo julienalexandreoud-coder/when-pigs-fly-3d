@@ -1,5 +1,5 @@
 // Boot, state machine and main loop.
-import { STEP, PIG_R, LAUNCH_ANGLE, MOON_ALT, scaleAt, formatInt, formatDistance } from './config.js';
+import { STEP, PIG_R, LAUNCH_ANGLE, scaleAt, formatInt, formatDistance } from './config.js';
 import { createWorld } from './world.js';
 import { SEG } from './terrain.js';
 import { createFlight, stepFlight, canSkip, simulateToEnd, rebound, summarize } from './physics.js';
@@ -62,6 +62,7 @@ const IDLE_NUDGE_S = 3;
 // On phones the controls legend only shows for the first flights (it covers the view).
 const TOUCH_LEGEND_FLIGHTS = 3;
 const END_PAUSE = 0.55;
+const MAX_EXTRAS = 2;
 // New players: the first flights skip the results card (straight back to the
 // launcher), start with surprise TNT under the landing spot, and never launch
 // too weakly. Flight 1 also ends with a free upgrade.
@@ -222,7 +223,7 @@ function nudgeIdle(realDt) {
 function showFlightControls() {
   input.setRocket(hasRocket());
   const touch = input.usedTouch;
-  ui.controls(true, { rocket: hasRocket(), touch, legend: !touch || save.flights < TOUCH_LEGEND_FLIGHTS });
+  ui.controls(true, { rocket: hasRocket(), touch, legend: !touch || save.flights < TOUCH_LEGEND_FLIGHTS, short: save.flights >= TOUCH_LEGEND_FLIGHTS });
 }
 
 function setHint(kind, text, seconds) {
@@ -480,18 +481,19 @@ function resultsView() {
     rec: save.flights > 1 && ((l.id === 'altitude' && records.alt) || (l.id === 'distance' && records.dist) || (l.id === 'speed' && records.speed)),
   }));
   if (pay.mult > 1) lines.push({ label: 'Piggy Bank', detail: `×${pay.mult.toFixed(2)}`, amount: pay.total - pay.subtotal });
-  const extras = [
+  // At most MAX_EXTRAS labels, so the card fits small windows: rewards won
+  // this flight first, then the best "one more flight" hook, then tomorrow's chest.
+  const rewards = [
+    ...(S.banked !== null ? [{ kind: 'medal', text: `Second wind earned +${formatInt(earned)}` }] : []),
+    ...(S.result.sixSeven ? [{ kind: 'mission', text: `🤲 6 7 bonus (payout had a 67) +67` }] : []),
     ...medals.map((m) => ({ kind: 'medal', text: `Medal: ${m.name} +${formatInt(m.reward)}` })),
     ...missions.map((m) => ({ kind: 'mission', text: `Quest cleared: ${missionText(m)} +${formatInt(m.reward)}` })),
   ];
-  if (S.banked !== null) extras.unshift({ kind: 'medal', text: `Second wind earned +${formatInt(earned)}` });
-  const moonPct = Math.min(100, (save.best.alt / MOON_ALT) * 100);
-  if (!summary.moon) extras.push({ kind: 'mission', text: `🌕 Moon progress: ${moonPct < 1 ? moonPct.toFixed(1) : Math.floor(moonPct)}% (best ${formatDistance(save.best.alt)} of 10 km)` });
+  // "You can buy X right now" is what the UPGRADE NOW button already says.
+  const hooks = S.result.nudges.filter((t) => !(quickOption() && /right now/.test(t))).map((text) => ({ kind: 'nudge', text: `👉 ${text}` }));
   const chest = dailyStatus(save, dayKey());
-  if (!chest.available) extras.push({ kind: 'medal', text: `🎁 Come back tomorrow: Day ${chest.tomorrowDay} chest = +${formatInt(chest.tomorrow)} coins` });
-  if (S.result.sixSeven) extras.unshift({ kind: 'mission', text: `🤲 6 7 bonus (payout had a 67) +67` });
-  // "One more flight" hooks go first: near records, near upgrades, near goals.
-  extras.unshift(...S.result.nudges.map((text) => ({ kind: 'nudge', text: `👉 ${text}` })));
+  const tomorrow = chest.available ? [] : [{ kind: 'medal', text: `🎁 Tomorrow: Day ${chest.tomorrowDay} chest = +${formatInt(chest.tomorrow)} coins` }];
+  const extras = [...rewards.slice(0, MAX_EXTRAS - 1), ...hooks.slice(0, 1), ...tomorrow, ...hooks.slice(1)].slice(0, MAX_EXTRAS);
   let title = 'not bad fr';
   if (summary.moon) title = 'TO THE MOON!';
   else if (records.alt && S.prevBest >= 30) title = 'BIG W. NEW RECORD';
@@ -499,7 +501,8 @@ function resultsView() {
   else if (summary.cause === 'splash') title = 'SPLOOSH';
   else if (summary.maxAlt >= 1000) title = 'HUGE AURA';
   else if (summary.time < 6) title = 'L + SPLAT 💀';
-  const goal = nextGoal(save);
+  // The "Next: ..." bar says the same as the UPGRADE NOW button; show one of them.
+  const goal = quickOption() ? null : nextGoal(save);
   return {
     title, cause: CAUSES[summary.cause] || '', lines, total: pay.total, extras,
     goal: goal ? { name: goal.name, cost: goal.cost, have: save.coins } : null,
@@ -830,6 +833,8 @@ function exposeDebug() {
     },
     reset() { persist(DEFAULT_SAVE); newReady(); },
     tiers(t) { persist(update(save, { upgrades: { ...save.upgrades, ...t } })); newReady(); },
+    // Patch the save (e.g. { flights: 12, coins: 900 }) to preview later screens.
+    set(patch) { persist(update(save, patch)); newReady(); return save; },
     autoplay(on = true) { S.autoplay = on; },
     // Advances the game by `seconds` at a fixed 60 fps, independent of rAF.
     step(seconds, fps = 60) {
