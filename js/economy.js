@@ -87,6 +87,14 @@ export function shopOptions(save) {
   return [...ups, ...skins].sort((a, b) => a.cost - b.cost);
 }
 
+// Best upgrade the player can afford right now: whatever makes Pip fly
+// farther first, the bouncy belly last. Used by the one-tap button and nudges.
+const UPGRADE_PRIORITY = ['launcher', 'wings', 'rocket', 'tank', 'helmet', 'magnet', 'belly'];
+export function bestAffordable(save) {
+  const rank = (id) => (UPGRADE_PRIORITY.includes(id) ? UPGRADE_PRIORITY.indexOf(id) : UPGRADE_PRIORITY.length);
+  return shopOptions(save).filter((o) => o.kind === 'upgrade' && o.cost <= save.coins).sort((a, b) => rank(a.id) - rank(b.id))[0] || null;
+}
+
 export const affordableCount = (save) => shopOptions(save).filter((o) => o.kind === 'upgrade' && o.cost <= save.coins).length;
 
 export function nextGoal(save) {

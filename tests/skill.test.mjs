@@ -274,3 +274,16 @@ test('bounces are limited per flight and each one is weaker', async () => {
   }
   assert.ok(speeds.length <= 3, `${speeds.length} bounces`);
 });
+
+test('coach gives up for the rest of the flight if the player never holds (no endless slow motion)', () => {
+  const ui = fakeUi();
+  const coach = createCoach(ui);
+  coach.start(['launch'], false);
+  const f = { t: 2, vx: 15, vy: 2, y: 30, x: 10, grounded: false, abduct: null, done: false };
+  let slow = 0;
+  for (let i = 0; i < 60 * 30; i++) if (coach.update(f, {}, false, 1 / 60, () => 0).scale < 1) slow++;
+  assert.ok(slow <= 60 * 6 + 2, `slow frames ${slow}`);
+  assert.equal(coach.active, false);
+  coach.start(['launch'], false);
+  assert.ok(coach.update(f, {}, false, 1 / 60, () => 0).scale < 1, 'lesson comes back next flight');
+});

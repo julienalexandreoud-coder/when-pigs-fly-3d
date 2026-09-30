@@ -361,6 +361,7 @@ body.six-on .hint { opacity: 0; }
 .extra { display: flex; flex-direction: column; gap: 6px; }
 .extra .pill { background: var(--yel); border: 2.5px solid var(--ink); border-radius: 8px; padding: 6px 10px 4px; font-size: 15px; transform: rotate(-0.8deg); }
 .extra .pill.mission { background: var(--lime); transform: rotate(0.8deg); }
+.extra .pill.nudge { background: var(--hot); color: #fff; font-weight: 700; transform: rotate(-1.2deg); animation: pulse 1.1s ease-in-out infinite; }
 .progress-block { display: flex; flex-direction: column; gap: 4px; }
 .progress-label { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); }
 .bar { height: 16px; border: 3px solid var(--ink); border-radius: 4px 10px 6px 8px; background: #fff; overflow: hidden; }

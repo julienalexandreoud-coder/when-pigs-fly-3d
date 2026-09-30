@@ -4,7 +4,7 @@ import { createWorld } from './world.js';
 import { SEG } from './terrain.js';
 import { createFlight, stepFlight, canSkip, simulateToEnd, rebound, summarize } from './physics.js';
 import { needleAt, meterPeriod, launchZone, launchPower } from './launch.js';
-import { nextGoal, affordableCount, shopOptions } from './economy.js';
+import { nextGoal, affordableCount, bestAffordable } from './economy.js';
 import { missionDone, missionText } from './missions.js';
 import { skinById, upgradeById } from './upgrades.js';
 import {
@@ -23,6 +23,7 @@ import { botInput } from './bot.js';
 import { createCoach, landingCue } from './coach.js';
 import { updateRush } from './rush.js';
 import { goalAt, goalReward, goalValue, goalText } from './goals.js';
+import { nudges } from './nudge.js';
 
 const PARAMS = new URLSearchParams(location.search);
 const DEBUG = PARAMS.has('debug');
@@ -55,7 +56,10 @@ const S = {
 // CrazyGames Basic Launch does not allow ads: keep this false until the game is
 // moved to Full Launch, then set it to true (or test with ?debug&ads).
 const ADS_ENABLED = false;
-const FIRST_AUTOLAUNCH_S = 7;
+// New players never wait on the launch screen: the first flight launches by
+// itself after a short countdown, the next quick flights a little later.
+const FIRST_AUTOLAUNCH_S = 2.5;
+const QUICK_AUTOLAUNCH_S = 4;
 const END_PAUSE = 0.55;
 // New players: the first flights skip the results card (straight back to the
 // launcher), start with surprise TNT under the landing spot, and never launch
@@ -128,6 +132,7 @@ function newReady() {
   S.cue = null;
   ui.hint(null);
   S.readyT = 0;
+  S.countdown = null;
   ui.ready(save, { golden: S.golden, goldenOffer: canAds() && hasRocket() && save.flights >= 2 });
   ui.tapText(save.flights < 2 ? 'TAP ANYWHERE TO LAUNCH!' : 'Tap / SPACE to YEET');
   maybeShowDaily();
@@ -166,6 +171,7 @@ function launch() {
   S.flight = createFlight(stats, { power, perfect: zone === 'perfect', golden: S.golden, starterBlasts: starterBlastsFor(save.flights) });
   S.golden = false;
   S.prevBest = save.best.alt;
+  S.prevDist = save.best.dist;
   S.recordShown = false;
   S.shownMissions = new Set();
   S.sixSeven = new Set();
@@ -200,12 +206,19 @@ function launch() {
   Sdk.gameplayStart();
 }
 
-// Brand-new players who don't tap get launched anyway, so they see a flight
-// instead of staring at the menu. Only on the very first flight.
+// Brand-new players who don't tap get launched anyway after a visible
+// countdown, so the first minute is flying, not a menu.
 function autoLaunchFirst(realDt) {
-  if (save.flights > 0 || S.adBusy || S.modal || !ui.readyVisible()) return;
+  // Only while the launch screen is the minimal one (no shop shown yet).
+  if (save.flights >= 2 || S.adBusy || S.modal || !ui.readyVisible()) return;
+  const wait = save.flights === 0 ? FIRST_AUTOLAUNCH_S : QUICK_AUTOLAUNCH_S;
   S.readyT += realDt;
-  if (S.readyT >= FIRST_AUTOLAUNCH_S) launch();
+  const left = Math.ceil(wait - S.readyT);
+  if (left !== S.countdown) {
+    S.countdown = left;
+    if (left > 0) ui.tapText(`TAP TO LAUNCH! · auto in ${left}…`);
+  }
+  if (S.readyT >= wait) launch();
 }
 
 function showFlightControls() {
@@ -398,7 +411,7 @@ function flightOver() {
   // Payout that contains "67" earns a +67 meme bonus.
   const sixSeven = String(res.payout.total).includes('67') ? 67 : 0;
   persist(sixSeven ? addCoins(res.save, sixSeven) : res.save);
-  S.result = { ...res, summary, sixSeven };
+  S.result = { ...res, summary, sixSeven, nudges: nudges(summary, save, { alt: S.prevBest, dist: S.prevDist }) };
   if (res.records.alt || res.medals.length || res.firstMoon) Sdk.happytime();
   if (!f.moon && f.cause !== 'quit') cashOut(f, res.payout.total + sixSeven);
   if (f.moon) {
@@ -416,12 +429,9 @@ function cashOut(f, total) {
   setTimeout(() => audio.buy(), 150);
 }
 
-// Best affordable upgrade for the one-tap button: whatever makes Pip fly
-// farther first, the bouncy belly last.
-const QUICK_ORDER = ['launcher', 'wings', 'rocket', 'tank', 'helmet', 'magnet', 'belly'];
+// Best affordable upgrade for the one-tap button (see economy.bestAffordable).
 function quickOption() {
-  const rank = (id) => (QUICK_ORDER.includes(id) ? QUICK_ORDER.indexOf(id) : QUICK_ORDER.length);
-  const o = shopOptions(save).filter((x) => x.kind === 'upgrade' && x.cost <= save.coins).sort((a, b) => rank(a.id) - rank(b.id))[0];
+  const o = bestAffordable(save);
   return o ? { ...o, line: upgradeById(o.id).name } : null;
 }
 
@@ -445,12 +455,13 @@ function quickUpgrade() {
 // counted in flightOver; show a short toast and go straight back to launching.
 function quickReturn() {
   // Quests were already toasted mid-flight (liveChecks); medals were not.
-  const { payout: pay, medals } = S.result;
+  const { payout: pay, medals, nudges: hooks } = S.result;
   for (const m of medals) ui.toast(`Medal: <b>${m.name}</b> +${formatInt(m.reward)}`);
   const free = save.flights === 1 && (save.upgrades.launcher || 0) === 0;
   newReady();
   ui.toast(`<b>+${formatInt(pay.total)}</b> coins! You have <b>${formatInt(save.coins)}</b>`);
   if (free) freeUpgrade();
+  else for (const n of hooks) ui.toast(n);
 }
 
 // A gift after the very first flight: the next launch visibly goes farther.
@@ -480,6 +491,8 @@ function resultsView() {
   const chest = dailyStatus(save, dayKey());
   if (!chest.available) extras.push({ kind: 'medal', text: `🎁 Come back tomorrow: Day ${chest.tomorrowDay} chest = +${formatInt(chest.tomorrow)} coins` });
   if (S.result.sixSeven) extras.unshift({ kind: 'mission', text: `🤲 6 7 bonus (payout had a 67) +67` });
+  // "One more flight" hooks go first: near records, near upgrades, near goals.
+  extras.unshift(...S.result.nudges.map((text) => ({ kind: 'nudge', text: `👉 ${text}` })));
   let title = 'not bad fr';
   if (summary.moon) title = 'TO THE MOON!';
   else if (records.alt && S.prevBest >= 30) title = 'BIG W. NEW RECORD';
@@ -738,12 +751,39 @@ function draw() {
   });
 }
 
+// The next frame is scheduled first and each frame is guarded: one bad frame
+// must never freeze the game. If errors keep repeating, the flight is dropped
+// and the player is put back on the launch screen (progress is saved).
+const MAX_BAD_FRAMES = 30;
+let badFrames = 0;
 function loop(now) {
+  requestAnimationFrame(loop);
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
-  tick(dt);
-  draw();
-  requestAnimationFrame(loop);
+  runFrame(dt);
+}
+
+function runFrame(dt) {
+  try {
+    tick(dt);
+    draw();
+    badFrames = 0;
+  } catch (err) {
+    badFrames += 1;
+    if (badFrames === 1) console.error('[loop] frame failed', err);
+    if (badFrames >= MAX_BAD_FRAMES) recoverFromErrors();
+  }
+}
+
+function recoverFromErrors() {
+  badFrames = 0;
+  try {
+    ui.hideAll();
+    newReady();
+  } catch (err) {
+    console.error('[loop] recovery failed, reloading', err);
+    location.reload();
+  }
 }
 
 // ---------- boot ----------
@@ -793,6 +833,8 @@ function exposeDebug() {
       return S.mode;
     },
     launch,
+    // One guarded frame, exactly like the real loop (tests error recovery).
+    frame: (dt = 1 / 60) => { runFrame(dt); return S.mode; },
   };
 }
 

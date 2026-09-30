@@ -9,7 +9,7 @@ const SLOW = 0.1;
 const HOLD_AT = 1.6;
 const KEEP_HOLDING = 1.6;
 const PRAISE = 1.3;
-const GIVE_UP = 9;
+const GIVE_UP = 6;
 const FLARE_TTI = 0.3;
 const CUE_TTI = 1.0;
 const MIN_FLARE_SPEED = 7;
@@ -85,7 +85,12 @@ export function createCoach(ui) {
             step = 'holding';
             t = 0;
             show('YOU’RE FLYING!', 'holding flaps your wings (blue FLAP bar)');
-          } else if (t > GIVE_UP) stop();
+          } else if (t > GIVE_UP) {
+            // Not this flight: let it play at full speed (the lesson returns
+            // next flight because the tip is not marked as learned).
+            need.hold = false;
+            stop();
+          }
           return { scale: step === 'hold' ? SLOW : 1, done };
         case 'holding':
           if (!holding || t > KEEP_HOLDING) {
@@ -118,7 +123,12 @@ export function createCoach(ui) {
             stop();
             return { scale: 1, done };
           }
-          return { scale: t > GIVE_UP ? 1 : SLOW * 0.6, done };
+          if (t > GIVE_UP) {
+            need.flare = false;
+            stop();
+            return { scale: 1, done };
+          }
+          return { scale: SLOW * 0.6, done };
         default:
           return { scale: 1, done };
       }

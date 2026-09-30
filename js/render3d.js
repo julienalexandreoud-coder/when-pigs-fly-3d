@@ -215,7 +215,28 @@ export function createRenderer(canvas) {
     { ratio: 1.25, grass: 0.6, shadows: true },
     { ratio: 1, grass: 0.3, shadows: false },
     { ratio: 0.8, grass: 0, shadows: false },
+    { ratio: 0.6, grass: 0, shadows: false },
   ];
+  // Launch-screen probe: the first frames decide how slow the device is, so a
+  // weak phone drops to a light level before the first flight, not during it.
+  const PROBE_SKIP = 12;
+  const PROBE_FRAMES = 40;
+  const probe = { n: 0, sum: 0, done: false };
+  function probeFrame(d) {
+    probe.n += 1;
+    if (probe.n <= PROBE_SKIP) return;
+    probe.sum += d;
+    if (probe.n < PROBE_SKIP + PROBE_FRAMES) return;
+    probe.done = true;
+    const avg = probe.sum / PROBE_FRAMES;
+    const steps = avg > 40 ? LEVELS.length : avg > 30 ? 2 : avg > 21 ? 1 : 0;
+    const level = Math.min(LEVELS.length - 1, perf.level + steps);
+    if (level !== perf.level) {
+      perf.level = level;
+      applyLevel();
+      console.info('[render] slow device (', avg.toFixed(1), 'ms/frame ) -> quality level', level);
+    }
+  }
   function applyLevel() {
     const L = LEVELS[perf.level];
     gl.setPixelRatio(Math.min(view.dpr, L.ratio));
@@ -233,9 +254,10 @@ export function createRenderer(canvas) {
     const d = Math.min(200, now - perf.lastNow);
     perf.lastNow = now;
     if (document.hidden || d > 150) return;
+    if (!probe.done) probeFrame(d);
     perf.ema += (d - perf.ema) * 0.05;
     perf.slowFor = perf.ema > 24 ? perf.slowFor + d : 0;
-    if (perf.slowFor > 1500 && perf.level < LEVELS.length - 1) {
+    if (perf.slowFor > 1000 && perf.level < LEVELS.length - 1) {
       perf.level += 1;
       perf.slowFor = 0;
       perf.ema = 16;
@@ -244,8 +266,34 @@ export function createRenderer(canvas) {
     }
   }
 
+  // Phones can lose the WebGL context (memory pressure, app switch). three.js
+  // rebuilds everything on restore; if that never comes, reload the page
+  // (progress is saved) instead of leaving a frozen screen.
+  const CONTEXT_WAIT_MS = 4000;
+  let contextLost = false;
+  let reloadTimer = null;
+  function armReload() {
+    clearTimeout(reloadTimer);
+    if (contextLost && !document.hidden) reloadTimer = setTimeout(() => { if (contextLost) location.reload(); }, CONTEXT_WAIT_MS);
+  }
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    contextLost = true;
+    console.warn('[render] WebGL context lost');
+    armReload();
+  });
+  // Only count the wait while the game is actually on screen.
+  document.addEventListener('visibilitychange', armReload);
+  canvas.addEventListener('webglcontextrestored', () => {
+    contextLost = false;
+    clearTimeout(reloadTimer);
+    applyLevel();
+    console.info('[render] WebGL context restored');
+  });
+
   let lastT = 0;
   function frame(s) {
+    if (contextLost) return;
     watchPerf();
     const dt = clamp(s.t - lastT, 0, 0.1);
     lastT = s.t;
