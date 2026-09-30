@@ -56,10 +56,9 @@ const S = {
 // CrazyGames Basic Launch does not allow ads: keep this false until the game is
 // moved to Full Launch, then set it to true (or test with ?debug&ads).
 const ADS_ENABLED = false;
-// New players never wait on the launch screen: the first flight launches by
-// itself after a short countdown, the next quick flights a little later.
-const FIRST_AUTOLAUNCH_S = 2.5;
-const QUICK_AUTOLAUNCH_S = 4;
+// New players get a big LAUNCH button; if nobody clicks for a few seconds it
+// grows and shakes. It never launches by itself.
+const IDLE_NUDGE_S = 3;
 const END_PAUSE = 0.55;
 // New players: the first flights skip the results card (straight back to the
 // launcher), start with surprise TNT under the landing spot, and never launch
@@ -132,9 +131,10 @@ function newReady() {
   S.cue = null;
   ui.hint(null);
   S.readyT = 0;
-  S.countdown = null;
+  S.idleShown = false;
+  ui.readyIdle(false);
   ui.ready(save, { golden: S.golden, goldenOffer: canAds() && hasRocket() && save.flights >= 2 });
-  ui.tapText(save.flights < 2 ? 'TAP ANYWHERE TO LAUNCH!' : 'Tap / SPACE to YEET');
+  ui.tapText(save.flights < 2 ? 'or tap anywhere' : 'Tap / SPACE to YEET');
   maybeShowDaily();
   // The launch screen is playable (timing the power meter), so it counts as gameplay.
   Sdk.gameplayStart();
@@ -206,19 +206,15 @@ function launch() {
   Sdk.gameplayStart();
 }
 
-// Brand-new players who don't tap get launched anyway after a visible
-// countdown, so the first minute is flying, not a menu.
-function autoLaunchFirst(realDt) {
-  // Only while the launch screen is the minimal one (no shop shown yet).
-  if (save.flights >= 2 || S.adBusy || S.modal || !ui.readyVisible()) return;
-  const wait = save.flights === 0 ? FIRST_AUTOLAUNCH_S : QUICK_AUTOLAUNCH_S;
+// New players who haven't clicked yet: after a few seconds the LAUNCH button
+// grows and shakes and the text points at it (only on the minimal screen).
+function nudgeIdle(realDt) {
+  if (save.flights >= 2 || S.idleShown || S.adBusy || S.modal || !ui.readyVisible()) return;
   S.readyT += realDt;
-  const left = Math.ceil(wait - S.readyT);
-  if (left !== S.countdown) {
-    S.countdown = left;
-    if (left > 0) ui.tapText(`TAP TO LAUNCH! · auto in ${left}…`);
-  }
-  if (S.readyT >= wait) launch();
+  if (S.readyT < IDLE_NUDGE_S) return;
+  S.idleShown = true;
+  ui.readyIdle(true);
+  ui.tapText('☝️ CLICK LAUNCH! ☝️');
 }
 
 function showFlightControls() {
@@ -657,6 +653,12 @@ const ui = createUI({
     Sdk.gameplayStart();
   },
   onAgain: yeetAgain,
+  onLaunch() {
+    if (S.mode !== 'ready' || S.adBusy || S.modal) return;
+    audio.unlock();
+    audio.startMusic();
+    launch();
+  },
   onQuickUp: quickUpgrade,
   onResume: resume,
   onQuit() {
@@ -718,7 +720,7 @@ function tick(realDt) {
     const v = needleAt(S.meterT, meterPeriod(save.flights));
     ui.needle(v);
     S.pull = 0.2 + v * 0.8;
-    autoLaunchFirst(realDt);
+    nudgeIdle(realDt);
   } else if (S.mode === 'flying') {
     stepFlightFrame(dt);
   } else if (S.mode === 'landed') {

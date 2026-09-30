@@ -44,6 +44,7 @@ export function createUI(handlers) {
   on('btn-quit', handlers.onQuit);
   on('btn-moon-ok', handlers.onMoonOk);
   on('btn-daily', handlers.onDaily);
+  on('btn-launch', handlers.onLaunch);
   on('btn-barn-yeet', handlers.onYeet);
   on('btn-records-yeet', handlers.onYeet);
   // Buttons must not leak pointer events to the canvas (that would launch or steer).
@@ -209,6 +210,7 @@ export function createUI(handlers) {
       show('ready');
     },
     readyVisible() { return !$('ready').classList.contains('hidden'); },
+    readyIdle(on) { $('ready').classList.toggle('idle', on); },
     badge(n) {
       for (const b of [el.barnBadge, el.barnBadge2]) {
         b.textContent = String(n);
