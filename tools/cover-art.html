@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>When Pigs Fly cover (ChatGPT art)</title>
+<link rel="stylesheet" href="../css/logo.css" />
+<style>
+  /* Covers from ChatGPT art (covers/art/*.png) + the game's own logo, the
+     only text CrazyGames allows. Its top-left corner is hidden by labels, so
+     the logo goes top-right (landscape) or at the bottom (portrait/square). */
+  @font-face { font-family: 'Bangers'; src: url('../fonts/bangers.woff2') format('woff2'); }
+  html, body { margin: 0; overflow: hidden; background: #000; }
+  img.art { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .brand { position: fixed; display: flex; justify-content: center; filter: drop-shadow(0 0.04em 0.12em rgba(0, 0, 0, 0.45)); }
+  .wide .brand { right: 3.5%; top: 5%; font-size: calc(var(--u) * 17); }
+  .tall .brand { left: 0; right: 0; bottom: 4%; font-size: calc(var(--u) * 20); }
+  .square .brand { font-size: calc(var(--u) * 14); bottom: 3.5%; }
+  .band { position: fixed; left: 0; right: 0; bottom: 0; height: 0; }
+  .tall .band { height: 34%; background: linear-gradient(transparent, rgba(30, 10, 50, 0.25) 45%, rgba(20, 8, 30, 0.55)); }
+</style>
+</head>
+<body>
+<img class="art" id="art" alt="" />
+<div class="band"></div>
+<div class="brand"><div class="wpf-logo" id="logo"></div></div>
+<script type="module">
+import { logoHTML } from '../js/logo.js';
+const q = new URLSearchParams(location.search);
+const W = Number(q.get('w') || 1920);
+const H = Number(q.get('h') || 1080);
+const wide = W > H * 1.2;
+const square = !wide && H < W * 1.2;
+document.body.className = wide ? 'wide' : square ? 'tall square' : 'tall';
+document.body.style.setProperty('--u', `${Math.min(W, H) / 100}px`);
+document.getElementById('logo').innerHTML = logoHTML();
+const art = document.getElementById('art');
+art.style.objectPosition = q.get('pos') || '50% 50%';
+art.src = `../covers/art/${q.get('img') || 'gpt-landscape-b.png'}`;
+await art.decode();
+await document.fonts.ready;
+document.title = 'ready';
+</script>
+</body>
+</html>
