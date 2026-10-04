@@ -38,8 +38,12 @@ const targets = wanted.length ? wanted : Object.keys(PLATFORMS);
 
 function zip(dir, out) {
   rmSync(out, { force: true });
-  if (process.platform === 'win32') execFileSync('tar.exe', ['-a', '-c', '-f', out, '-C', dir, '.']);
-  else execFileSync('zip', ['-qr', out, '.'], { cwd: dir });
+  // Windows: use the system bsdtar explicitly. Under Git Bash, "tar.exe" on
+  // PATH is GNU tar, which reads "C:\..." as a remote host and cannot write zips.
+  if (process.platform === 'win32') {
+    const tar = join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe');
+    execFileSync(tar, ['-a', '-c', '-f', out, '-C', dir, '.']);
+  } else execFileSync('zip', ['-qr', out, '.'], { cwd: dir });
 }
 
 function countFiles(dir) {
