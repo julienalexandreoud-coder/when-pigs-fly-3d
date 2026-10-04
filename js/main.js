@@ -53,9 +53,6 @@ const S = {
   coachScale: 1, cue: null, resultsAt: 0, boostEmpty: false,
 };
 
-// CrazyGames Basic Launch does not allow ads: keep this false until the game is
-// moved to Full Launch, then set it to true (or test with ?debug&ads).
-const ADS_ENABLED = false;
 // New players get a big LAUNCH button; if nobody clicks for a few seconds it
 // grows and shakes. It never launches by itself.
 const IDLE_NUDGE_S = 3;
@@ -74,7 +71,10 @@ const starterBlastsFor = (flights) => (flights < 2 ? 2 : flights < 5 ? 1 : 0);
 const MILESTONES = [25, 50, 150, 250, 300, 400, 600, 900, 1250, 2500, 4000, 7500, 10000];
 const milestoneBonus = (m) => Math.max(2, Math.round(m / 25));
 const RESULTS_KEY_DELAY = 600;
-const canAds = () => (ADS_ENABLED && Sdk.available) || (DEBUG && PARAMS.has('ads'));
+// Each portal build decides whether ads run (js/sdk.js); ?debug&ads fakes them.
+const fakeAds = () => DEBUG && PARAMS.has('ads');
+const canAds = () => Sdk.adsEnabled || fakeAds();
+const canRewarded = () => Sdk.rewardedEnabled || fakeAds();
 const hasRocket = () => (save.upgrades.rocket || 0) > 0;
 
 function persist(next) {
@@ -92,7 +92,7 @@ async function showAd(type) {
   const onStart = () => { audio.setAdMuted(true); ui.adShade(true); };
   const onEnd = () => { audio.setAdMuted(false); ui.adShade(false); };
   let ok;
-  if (Sdk.available) {
+  if (Sdk.adsEnabled) {
     ok = await Sdk.requestAd(type, { onStart, onEnd });
   } else if (DEBUG) {
     onStart();
@@ -136,7 +136,7 @@ function newReady() {
   S.readyT = 0;
   S.idleShown = false;
   ui.readyIdle(false);
-  ui.ready(save, { golden: S.golden, goldenOffer: canAds() && hasRocket() && save.flights >= 2 });
+  ui.ready(save, { golden: S.golden, goldenOffer: canRewarded() && hasRocket() && save.flights >= 2 });
   ui.tapText(save.flights < 2 ? 'or tap anywhere' : 'Tap / SPACE to YEET');
   maybeShowDaily();
   // The launch screen is playable (timing the power meter), so it counts as gameplay.
@@ -161,7 +161,7 @@ function claimChest() {
     fx.burst(0, 30, 50, { colors: ['#ffd23f', '#ff7aa2', '#b8ff2e', '#26e0ff'], speed: 16, life: 1.4, size: 8, kind: 'confetti', gravity: 9 });
     ui.toast(`<b>+${formatInt(r.coins)}</b> coins from the Day ${r.day} chest!`);
   }
-  ui.ready(save, { golden: S.golden, goldenOffer: canAds() && hasRocket() && save.flights >= 2 });
+  ui.ready(save, { golden: S.golden, goldenOffer: canRewarded() && hasRocket() && save.flights >= 2 });
 }
 
 function launch() {
@@ -470,7 +470,7 @@ function freeUpgrade() {
   audio.medal();
   fx.flash('184,255,46', 0.3);
   ui.banner('FREE UPGRADE!', `${upgradeById('launcher').levels[1].name}: launch way harder`, 2200);
-  ui.ready(save, { golden: S.golden, goldenOffer: canAds() && hasRocket() && save.flights >= 2 });
+  ui.ready(save, { golden: S.golden, goldenOffer: canRewarded() && hasRocket() && save.flights >= 2 });
 }
 
 function resultsView() {
@@ -506,8 +506,8 @@ function resultsView() {
   return {
     title, cause: CAUSES[summary.cause] || '', lines, total: pay.total, extras,
     goal: goal ? { name: goal.name, cost: goal.cost, have: save.coins } : null,
-    canDouble: canAds() && pay.total > 0 && !S.doubled,
-    canWind: canAds() && !summary.moon && !f.rebounded && summary.cause !== 'quit',
+    canDouble: canRewarded() && pay.total > 0 && !S.doubled,
+    canWind: canRewarded() && !summary.moon && !f.rebounded && summary.cause !== 'quit',
   };
 }
 
@@ -557,7 +557,7 @@ function closeBarn() {
     ui.show('results');
     ui.badge(affordableCount(save));
   } else {
-    ui.ready(save, { golden: S.golden, goldenOffer: canAds() && hasRocket() && save.flights >= 2 });
+    ui.ready(save, { golden: S.golden, goldenOffer: canRewarded() && hasRocket() && save.flights >= 2 });
     Sdk.gameplayStart();
   }
 }
@@ -796,6 +796,10 @@ function recoverFromErrors() {
 
 // ---------- boot ----------
 async function boot() {
+  Sdk.onPortalAd({
+    onStart() { pause(); audio.setAdMuted(true); },
+    onEnd() { audio.setAdMuted(false); },
+  });
   await initSdk();
   Sdk.loadingStart();
   try {

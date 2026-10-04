@@ -10,7 +10,7 @@ dodge. Vanilla HTML5 canvas, no build step, no image or audio files (all art and
 npm run serve    # no-cache static server on http://localhost:8770 (?debug exposes window.wpf, &sandbox = memory-only save)
 npm test         # unit tests
 npm run balance  # balance bot: skilled + novice runs to the Moon
-npm run pack     # dist/when-pigs-fly-crazygames.zip for the CrazyGames upload
+npm run pack     # one upload zip per portal in dist/ (see PUBLISHING.md)
 ```
 
 Covers are rendered from `tools/cover3d.html` with headless Edge, for example:

@@ -1,12 +1,22 @@
-// Thin, failure-tolerant wrapper around the CrazyGames HTML5 SDK v3.
-// Every call is guarded so the game keeps working if the SDK is blocked.
+// Thin, failure-tolerant wrapper around the web-portal SDKs. One build per
+// portal: tools/pack.mjs sets window.WPF_PLATFORM (and the portal's game id)
+// and swaps in that portal's SDK <script>. Every call is guarded so the game
+// keeps working if the SDK is blocked or missing.
+//
+//   crazygames        CrazyGames HTML5 SDK v3 (window.CrazyGames.SDK)
+//   gamedistribution  GameDistribution SDK (window.gdsdk, GD_OPTIONS)
+//   gamemonetize      GameMonetize SDK (window.sdk, SDK_OPTIONS), interstitials only
+//   poki              Poki SDK v2 (window.PokiSDK)
+//   none              no ads (itch.io, own site)
 
-let sdk = null;
+let adapter = null;
 let playing = false;
 let lastMidgame = 0;
 const MIDGAME_GAP_MS = 180_000;
 const INIT_TIMEOUT_MS = 6000;
 const MIDGAME_MIN_FLIGHTS = 3;
+
+export const PLATFORM = (typeof window !== 'undefined' && window.WPF_PLATFORM) || 'crazygames';
 
 const safe = (label, fn) => {
   try {
@@ -17,63 +27,240 @@ const safe = (label, fn) => {
   }
 };
 
-export async function initSdk() {
+// Never let a stuck SDK keep the game on the loading screen.
+const withTimeout = (promise, label) => Promise.race([
+  promise,
+  new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out`)), INIT_TIMEOUT_MS)),
+]);
+
+// Waits for a global that an async <script> defines; null after the timeout.
+function waitFor(get) {
+  return new Promise((resolve) => {
+    const t0 = Date.now();
+    (function poll() {
+      const v = safe('waitFor', get);
+      if (v) resolve(v);
+      else if (Date.now() - t0 > INIT_TIMEOUT_MS) resolve(null);
+      else setTimeout(poll, 50);
+    }());
+  });
+}
+
+// ---------- CrazyGames ----------
+async function crazyGames() {
   const api = window.CrazyGames && window.CrazyGames.SDK;
-  if (!api) {
-    console.warn('[sdk] CrazyGames SDK not present, running standalone');
+  if (!api) return null;
+  await withTimeout(api.init(), 'CrazyGames init');
+  return {
+    // CrazyGames Basic Launch does not allow ads; flip once in Full Launch.
+    ads: false,
+    rewarded: true,
+    loadingStart: () => api.game.loadingStart(),
+    loadingStop: () => api.game.loadingStop(),
+    gameplayStart: () => api.game.gameplayStart(),
+    gameplayStop: () => api.game.gameplayStop(),
+    happytime: () => api.game.happytime(),
+    async username() {
+      if (!api.user || !api.user.isUserAccountAvailable) return null;
+      const user = await api.user.getUser();
+      return user && user.username;
+    },
+    storage: api.data && typeof api.data.getItem === 'function' ? api.data : null,
+    onSettings(listener) {
+      if (api.game.settings) listener(api.game.settings);
+      if (typeof api.game.addSettingsChangeListener === 'function') api.game.addSettingsChangeListener(listener);
+    },
+    requestAd(type, { onStart, onEnd }) {
+      return new Promise((resolve) => {
+        let started = false;
+        const finish = (granted) => { if (started) onEnd(); resolve(granted); };
+        api.ad.requestAd(type, {
+          adStarted: () => { started = true; onStart(); },
+          adFinished: () => finish(true),
+          adError: (err) => { console.warn(`[sdk] ${type} ad error`, err); finish(false); },
+        });
+      });
+    },
+  };
+}
+
+// ---------- GameDistribution / GameMonetize ----------
+// Both use an event-callback SDK. GD_OPTIONS / SDK_OPTIONS must exist before
+// their script loads, so the build declares them in index.html and forwards
+// every event to window.WPF_SDK_EVENT, which is hooked here.
+// Ads the portal shows on its own (GD's pre-roll) still pause and mute the game.
+let inAd = false;
+let portalAd = null;
+function eventBus() {
+  const listeners = new Set();
+  window.WPF_SDK_EVENT = (event) => {
+    for (const l of listeners) safe('sdk event', () => l(event));
+    if (inAd || !portalAd) return;
+    if (event.name === 'SDK_GAME_PAUSE') safe('portal ad start', portalAd.onStart);
+    if (event.name === 'SDK_GAME_START') safe('portal ad end', portalAd.onEnd);
+  };
+  return (l) => { listeners.add(l); return () => listeners.delete(l); };
+}
+
+async function gameDistribution() {
+  const on = eventBus();
+  const api = await waitFor(() => window.gdsdk && typeof window.gdsdk.showAd === 'function' && window.gdsdk);
+  if (!api) return null;
+  return {
+    ads: true,
+    rewarded: true,
+    requestAd(type, { onStart, onEnd }) {
+      return new Promise((resolve) => {
+        let started = false;
+        let watched = false;
+        const off = on((e) => {
+          if (e.name === 'SDK_GAME_PAUSE' && !started) { started = true; onStart(); }
+          if (e.name === 'SDK_REWARDED_WATCH_COMPLETE') watched = true;
+        });
+        const finish = (ok) => {
+          off();
+          if (started) onEnd();
+          // Rewards only after SDK_REWARDED_WATCH_COMPLETE, never on a rejection.
+          resolve(type === 'rewarded' ? ok && watched : ok);
+        };
+        const show = type === 'rewarded'
+          ? api.preloadAd('rewarded').then(() => api.showAd('rewarded'))
+          : api.showAd();
+        Promise.resolve(show).then(() => finish(true), (err) => {
+          console.warn(`[sdk] ${type} ad error`, err);
+          finish(false);
+        });
+      });
+    },
+  };
+}
+
+async function gameMonetize() {
+  const on = eventBus();
+  const api = await waitFor(() => window.sdk && typeof window.sdk.showBanner === 'function' && window.sdk);
+  if (!api) return null;
+  return {
+    ads: true,
+    // GameMonetize serves interstitials only; the reward buttons stay hidden.
+    rewarded: false,
+    requestAd(type, { onStart, onEnd }) {
+      if (type === 'rewarded') return Promise.resolve(false);
+      return new Promise((resolve) => {
+        let started = false;
+        let done = false;
+        let off = () => {};
+        let noAd = 0;
+        const finish = (ok) => {
+          if (done) return;
+          done = true;
+          off();
+          clearTimeout(noAd);
+          if (started) onEnd();
+          resolve(ok);
+        };
+        off = on((e) => {
+          if (e.name === 'SDK_GAME_PAUSE' && !started) { started = true; onStart(); }
+          if (e.name === 'SDK_GAME_START') finish(true);
+          if (e.name === 'SDK_ERROR') finish(false);
+        });
+        // When no ad is served the SDK can stay silent: carry on after a moment.
+        noAd = setTimeout(() => { if (!started) finish(false); }, 3000);
+        api.showBanner();
+      });
+    },
+  };
+}
+
+// ---------- Poki ----------
+async function poki() {
+  const api = await waitFor(() => window.PokiSDK);
+  if (!api) return null;
+  await withTimeout(api.init(), 'Poki init');
+  return {
+    ads: true,
+    rewarded: true,
+    loadingStop: () => api.gameLoadingFinished(),
+    gameplayStart: () => api.gameplayStart(),
+    gameplayStop: () => api.gameplayStop(),
+    async requestAd(type, { onStart, onEnd }) {
+      let started = false;
+      const start = () => { started = true; onStart(); };
+      try {
+        if (type === 'rewarded') return Boolean(await api.rewardedBreak(start));
+        await api.commercialBreak(start);
+        return true;
+      } finally {
+        if (started) onEnd();
+      }
+    },
+  };
+}
+
+const ADAPTERS = { crazygames: crazyGames, gamedistribution: gameDistribution, gamemonetize: gameMonetize, poki };
+
+export async function initSdk() {
+  const make = ADAPTERS[PLATFORM];
+  if (!make) {
+    console.info(`[sdk] platform "${PLATFORM}": no ad SDK`);
     return false;
   }
   try {
-    // Never let a stuck SDK keep the game on the loading screen.
-    await Promise.race([
-      api.init(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('init timed out')), INIT_TIMEOUT_MS)),
-    ]);
-    sdk = api;
-    return true;
+    adapter = await make();
+    if (!adapter) console.warn(`[sdk] ${PLATFORM} SDK not present, running standalone`);
   } catch (err) {
-    console.warn('[sdk] init failed, running standalone', err);
-    return false;
+    console.warn(`[sdk] ${PLATFORM} init failed, running standalone`, err);
+    adapter = null;
   }
+  return adapter !== null;
 }
+
+const call = (name) => () => adapter && adapter[name] && safe(name, () => adapter[name]());
 
 export const Sdk = {
   get available() {
-    return sdk !== null;
+    return adapter !== null;
   },
-  loadingStart: () => sdk && safe('loadingStart', () => sdk.game.loadingStart()),
-  loadingStop: () => sdk && safe('loadingStop', () => sdk.game.loadingStop()),
+  get platform() {
+    return PLATFORM;
+  },
+  // This portal allows ads and its SDK loaded.
+  get adsEnabled() {
+    return Boolean(adapter && adapter.ads);
+  },
+  // This portal also serves rewarded ads (the opt-in reward buttons).
+  get rewardedEnabled() {
+    return Boolean(adapter && adapter.ads && adapter.rewarded);
+  },
+  loadingStart: call('loadingStart'),
+  loadingStop: call('loadingStop'),
   gameplayStart() {
     if (playing) return;
     playing = true;
-    if (sdk) safe('gameplayStart', () => sdk.game.gameplayStart());
+    call('gameplayStart')();
   },
   gameplayStop() {
     if (!playing) return;
     playing = false;
-    if (sdk) safe('gameplayStop', () => sdk.game.gameplayStop());
+    call('gameplayStop')();
   },
-  happytime: () => sdk && safe('happytime', () => sdk.game.happytime()),
-  get raw() {
-    return sdk;
-  },
+  happytime: call('happytime'),
 
-  // CrazyGames username when the player is logged in, otherwise null.
+  // Portal username when the player is logged in, otherwise null.
   async username() {
-    if (!sdk || !sdk.user || !sdk.user.isUserAccountAvailable) return null;
+    if (!adapter || !adapter.username) return null;
     try {
-      const user = await sdk.user.getUser();
-      return user && typeof user.username === 'string' ? user.username.slice(0, 24) : null;
+      const name = await adapter.username();
+      return typeof name === 'string' ? name.slice(0, 24) : null;
     } catch (err) {
-      console.warn('[sdk] getUser failed', err);
+      console.warn('[sdk] username failed', err);
       return null;
     }
   },
 
-  // Returns a backend with getItem/setItem: the SDK data module (synced to
-  // the player's CrazyGames account) or localStorage as a fallback.
+  // Returns a backend with getItem/setItem: the portal's cloud save when it
+  // has one, otherwise localStorage, otherwise memory.
   storageBackend() {
-    if (sdk && sdk.data && typeof sdk.data.getItem === 'function') return sdk.data;
+    if (adapter && adapter.storage) return adapter.storage;
     try {
       const probe = '__wpf_probe';
       window.localStorage.setItem(probe, '1');
@@ -86,44 +273,25 @@ export const Sdk = {
   },
 
   onSettings(listener) {
-    if (!sdk || !sdk.game) return;
-    safe('settings', () => {
-      if (sdk.game.settings) listener(sdk.game.settings);
-      if (typeof sdk.game.addSettingsChangeListener === 'function') {
-        sdk.game.addSettingsChangeListener(listener);
-      }
-    });
+    if (adapter && adapter.onSettings) safe('settings', () => adapter.onSettings(listener));
   },
 
-  // Resolves true when a rewarded ad finished (reward should be granted).
-  requestAd(type, { onStart, onEnd }) {
-    return new Promise((resolve) => {
-      if (!sdk) {
-        resolve(false);
-        return;
-      }
-      let started = false;
-      const finish = (granted) => {
-        if (started) onEnd();
-        resolve(granted);
-      };
-      try {
-        sdk.ad.requestAd(type, {
-          adStarted: () => {
-            started = true;
-            onStart();
-          },
-          adFinished: () => finish(true),
-          adError: (err) => {
-            console.warn(`[sdk] ${type} ad error`, err);
-            finish(false);
-          },
-        });
-      } catch (err) {
-        console.warn(`[sdk] requestAd ${type} threw`, err);
-        finish(false);
-      }
-    });
+  // Resolves true when the ad finished (rewarded: the reward should be granted).
+  async requestAd(type, { onStart, onEnd }) {
+    if (!adapter || !adapter.ads) return false;
+    inAd = true;
+    try {
+      return await adapter.requestAd(type, { onStart, onEnd });
+    } catch (err) {
+      console.warn(`[sdk] requestAd ${type} threw`, err);
+      return false;
+    } finally {
+      inAd = false;
+    }
+  },
+  // Called for ads the portal starts by itself (not requested by the game).
+  onPortalAd(handlers) {
+    portalAd = handlers;
   },
 
   shouldShowMidgame(runs) {
