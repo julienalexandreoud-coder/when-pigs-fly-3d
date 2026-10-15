@@ -8,10 +8,20 @@ export const WING_SVG = `<path d="M70 40 C62 14 40 2 6 4 C15 10 15 15 11 19 C22 
 
 const SPARK = `<path d="M12 0 L15 9 L24 12 L15 15 L12 24 L9 15 L0 12 L9 9 Z" fill="#fff36b" stroke="#141014" stroke-width="2" stroke-linejoin="round"/>`;
 
+// A curly pig tail that hangs off the last letter of PIGS.
+const TAIL = `<path d="M4 30 C14 30 20 22 16 14 C12 6 2 10 6 17 C10 24 24 22 28 10 C30 4 34 2 38 4"
+  fill="none" stroke="#141014" stroke-width="12" stroke-linecap="round"/>
+  <path d="M4 30 C14 30 20 22 16 14 C12 6 2 10 6 17 C10 24 24 22 28 10 C30 4 34 2 38 4"
+  fill="none" stroke="#ff8cc0" stroke-width="6.5" stroke-linecap="round"/>`;
+
 export function logoHTML() {
   return `
-    <span class="lw l-when" data-t="WHEN">WHEN</span>
-    <span class="lw l-pigs" data-t="PIGS">PIGS</span>
+    <span class="l-moon" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span class="l-ribbon"><span class="lw l-when" data-t="WHEN">WHEN</span></span>
+    <span class="l-pigs-row">
+      <span class="lw l-pigs" data-t="PIGS">PIGS</span>
+      <svg class="tail" viewBox="0 0 42 36" aria-hidden="true">${TAIL}</svg>
+    </span>
     <span class="l-fly-row">
       <svg class="wing l" viewBox="0 0 72 58" aria-hidden="true">${WING_SVG}</svg>
       <span class="lw l-fly" data-t="FLY">FLY</span>

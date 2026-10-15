@@ -1,12 +1,24 @@
 // Results (with count-up), the Barn shop and the Records screen.
 
-import { UPGRADES, SKINS, maxLevel, statText, isLocked } from './upgrades.js';
+import { UPGRADES, SKINS, maxLevel, isLocked } from './upgrades.js';
 import { MEDALS, medalText } from './economy.js';
 import { missionText } from './missions.js';
 import { formatDistance, formatInt, kmh } from './config.js';
 import { upgradeIcon, skinIcon } from './art/icons.js';
 
 const $ = (id) => document.getElementById(id);
+
+// What each upgrade does, in words a new player gets at a glance.
+const PLAIN = {
+  launcher: 'Launch faster',
+  wings: 'Glide farther',
+  rocket: 'Climb harder while you hold',
+  tank: 'Rocket lasts longer',
+  helmet: 'Cut through the air',
+  belly: 'Bounce more',
+  magnet: 'Grab coins from farther',
+  bank: 'More coins every flight',
+};
 
 export function createPanels(handlers) {
   let countTimer = null;
@@ -116,22 +128,26 @@ export function createPanels(handlers) {
     $('skin-grid').classList.toggle('hidden', barnTab !== 'pigs');
     const tiers = save.upgrades;
     if (barnTab === 'upgrades') {
+      // One tile per upgrade: picture, name, level, what it does in plain words, price.
       const list = $('upgrade-list');
       list.innerHTML = UPGRADES.map((u) => {
         const lv = tiers[u.id] || 0;
         const max = lv >= maxLevel(u);
         const locked = isLocked(tiers, u);
         const cost = max ? 0 : u.costs[lv];
+        const can = !max && !locked && save.coins >= cost;
         const name = max ? u.levels[lv].name : u.levels[lv + 1].name;
-        const stat = locked ? 'Buy a Rocket first' : max
-          ? `${statText(u.id, lv)} (max)`
-          : `${statText(u.id, lv)} → <b>${statText(u.id, lv + 1)}</b>`;
+        const hint = locked ? 'Buy a Rocket first' : PLAIN[u.id] || u.blurb;
         const pips = u.levels.slice(1).map((_, k) => `<i class="${k < lv ? 'on' : ''}"></i>`).join('');
         const btn = max
-          ? '<button class="btn buy max" disabled>MAX</button>'
-          : `<button class="btn buy ${save.coins >= cost && !locked ? 'primary' : ''}" data-buy="${u.id}" ${locked ? 'disabled' : ''}><span class="coin-icon"></span>${formatInt(cost)}</button>`;
-        return `<div class="up-card ${locked ? 'locked' : ''}"><canvas width="128" height="128" data-icon="${u.id}" data-level="${max ? lv : lv + 1}"></canvas>
-          <div><div class="u-name">${name}</div><div class="u-stat">${u.name} · ${stat}</div><div class="pips">${pips}</div></div>${btn}</div>`;
+          ? '<button class="buy max" disabled>MAX</button>'
+          : `<button class="buy ${can ? 'can' : ''}" data-buy="${u.id}" ${locked ? 'disabled' : ''}><span class="coin-icon"></span>${formatInt(cost)}</button>`;
+        return `<div class="up-tile ${locked ? 'locked' : ''} ${can ? 'can' : ''}">
+          <div class="t-top"><span class="t-line">${u.name}</span><span class="t-lv">Lv ${lv + 1}</span></div>
+          <canvas width="128" height="128" data-icon="${u.id}" data-level="${max ? lv : lv + 1}"></canvas>
+          <div class="t-name">${max ? name : `Next: ${name}`}</div>
+          <div class="t-hint">${hint}</div>
+          <div class="pips">${pips}</div>${btn}</div>`;
       }).join('');
       list.querySelectorAll('canvas').forEach((c) => upgradeIcon(c, c.dataset.icon, Number(c.dataset.level), tiers));
     } else {

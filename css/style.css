@@ -601,3 +601,79 @@ h3.sub { margin: 6px 0 0; font-family: var(--display); font-size: 26px; font-wei
 .chip b { color: var(--lime-d); font-weight: 400; }
 .chip.cost { background: var(--yel); }
 .btn.yeet.upgrade { background: var(--lime); color: var(--ink); -webkit-text-stroke: 0; font-size: 28px; }
+
+/* ---------- soft card theme (shop, results, pause, records, daily) ----------
+   Flat and friendly like the launch-to-the-Moon games players know: pink frame,
+   cream inside, rounded white tiles, nothing tilted. */
+:root { --plum: #3b2747; --rose: #f2a7c3; --rose-d: #d9779f; --cream: #fff6ec; --line: #ead3de; --go: #5fd36b; --go-d: #3fae4c; }
+.modal .card {
+  background: var(--cream); color: var(--plum); transform: none;
+  border: 8px solid var(--rose); border-radius: 22px; outline: 3px solid var(--plum); outline-offset: 0;
+  box-shadow: 0 10px 0 rgba(59, 39, 71, 0.35); padding: 18px 18px 16px;
+  animation: pop-in 0.25s cubic-bezier(.2,1.4,.4,1);
+}
+@keyframes pop-in { from { transform: translateY(24px) scale(0.92); opacity: 0; } }
+.modal .card h2 {
+  align-self: center; transform: none; color: #fff; font-size: 30px; letter-spacing: 1px; text-shadow: none;
+  -webkit-text-stroke: 0; background: var(--hot); border: 3px solid var(--plum); border-radius: 10px;
+  padding: 6px 22px 3px; box-shadow: 0 4px 0 var(--hot-d);
+}
+.modal .card .card-head { justify-content: space-between; }
+.modal .card .cause { color: #7a6585; }
+.modal .wallet { transform: none; background: #fff; border: 3px solid var(--line); box-shadow: none; color: var(--plum); border-radius: 30px; padding: 4px 14px 2px; }
+.modal .btn {
+  transform: none; border: 3px solid var(--plum); border-radius: 14px; box-shadow: 0 5px 0 var(--plum);
+  font-size: 22px; color: var(--plum); background: #fff;
+}
+.modal .btn:hover { transform: translateY(-2px); }
+.modal .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--plum); }
+.modal .btn.primary, .modal .btn.yeet.upgrade { background: var(--go); color: #fff; -webkit-text-stroke: 1.5px var(--plum); paint-order: stroke fill; }
+.modal .btn.secondary { background: #fff; color: var(--plum); }
+.modal .btn.yeet { background: var(--go); color: #fff; -webkit-text-stroke: 1.5px var(--plum); paint-order: stroke fill; box-shadow: 0 6px 0 var(--go-d), 0 6px 0 2px var(--plum); animation: none; }
+.modal .btn.yeet:hover { transform: translateY(-2px); }
+.modal .btn.ad { background: #9b7bff; color: #fff; }
+.modal .row.foot { background: var(--cream); border-top: 2px solid var(--line); }
+.modal .lines li { border-color: var(--line); background: #fff; transform: none; border-radius: 10px; }
+.modal .lines li:nth-child(even) { background: #fff; }
+.modal .total b { color: var(--plum); -webkit-text-stroke: 0; text-shadow: none; }
+.modal .extra .pill { transform: none; border: 2px solid var(--line); border-radius: 20px; background: #fff; }
+.modal .extra .pill.mission { background: #e9fbe7; }
+.modal .extra .pill.nudge { background: #ffe3ef; color: var(--plum); }
+.modal .plan { border: 2px solid var(--line); box-shadow: none; }
+.modal .chip { border: 2px solid var(--line); background: #fff; color: var(--plum); }
+.modal .chip b { color: var(--go-d); font-weight: 700; }
+.modal .chip.cost { background: #fff3c4; }
+.modal .badge { animation: none; }
+
+/* shop: tabs and a grid of upgrade tiles */
+#barn .tabs { gap: 8px; }
+#barn .tab { transform: none; border: 3px solid var(--line); box-shadow: none; border-radius: 30px; color: var(--plum); font-size: 20px; }
+#barn .tab.active { background: var(--rose); color: #fff; -webkit-text-stroke: 1.5px var(--plum); border-color: var(--plum); }
+#barn .card.wide { width: min(760px, 100%); }
+.upgrade-list { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.upgrade-list.hidden { display: none !important; }
+.up-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center;
+  background: #fff; border: 2px solid var(--line); border-radius: 14px; padding: 8px 8px 10px;
+}
+.up-tile.can { border-color: var(--go); box-shadow: 0 0 0 2px #c9f2cc inset; }
+.up-tile.locked { opacity: 0.55; }
+.up-tile .t-top { display: flex; justify-content: space-between; width: 100%; font-size: 12px; font-weight: 700; color: #7a6585; }
+.up-tile .t-lv { color: var(--go-d); }
+.up-tile canvas { width: 72px; height: 72px; border-radius: 12px; background: #e9f7ff; }
+.up-tile .t-name { font-family: var(--display); font-size: 17px; letter-spacing: 0.5px; line-height: 1.05; }
+.up-tile .t-hint { font-size: 12px; color: #7a6585; line-height: 1.2; min-height: 2.4em; }
+.up-tile .pips { justify-content: center; }
+.up-tile .pips i { border-color: var(--line); background: #f3e8ee; }
+.up-tile .pips i.on { background: var(--go); border-color: var(--go-d); }
+.up-tile .buy {
+  margin-top: 4px; width: 100%; min-width: 0; border: 3px solid var(--plum); border-radius: 12px; padding: 5px 6px 3px;
+  font-family: var(--display); font-size: 19px; letter-spacing: 1px; background: #efe7ec; color: #8b7a93; box-shadow: 0 4px 0 #c9b8c4; cursor: pointer;
+}
+.up-tile .buy.can { background: var(--go); color: #fff; -webkit-text-stroke: 1.2px var(--plum); paint-order: stroke fill; box-shadow: 0 4px 0 var(--go-d); }
+.up-tile .buy:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--go-d); }
+.up-tile .buy.max { background: #fff3c4; color: var(--plum); box-shadow: none; cursor: default; }
+.skin { transform: none !important; border: 2px solid var(--line); box-shadow: none; border-radius: 14px; color: var(--plum); }
+.skin.equipped { background: #e9fbe7; border-color: var(--go); }
+@media (max-width: 700px) { .upgrade-list { grid-template-columns: repeat(2, 1fr); } .modal .card h2 { font-size: 24px; } }
+@media (max-height: 520px) and (orientation: landscape) { .upgrade-list { grid-template-columns: repeat(4, 1fr); } .up-tile canvas { width: 48px; height: 48px; } .up-tile .t-hint { display: none; } }
