@@ -20,7 +20,7 @@ import { createInput, LAUNCH_KEYS } from './input.js';
 import { createUI } from './ui.js';
 import { createJuice } from './juice.js';
 import { botInput } from './bot.js';
-import { createCoach, landingCue } from './coach.js';
+import { createCoach } from './coach.js';
 import { updateRush } from './rush.js';
 import { goalAt, goalReward, goalValue, goalText } from './goals.js';
 import { nudges } from './nudge.js';
@@ -50,14 +50,12 @@ const S = {
   squash: 0, golden: false, banked: null, result: null, doubled: false, backTo: 'ready',
   prevBest: 0, recordShown: false, shownMissions: new Set(), hintUntil: 0, hintKind: null,
   username: null, adBusy: false, autoplay: false, endTimer: 0, sixSeven: new Set(), modal: false,
-  coachScale: 1, cue: null, resultsAt: 0, boostEmpty: false,
+  coachScale: 1, resultsAt: 0,
 };
 
 // New players get a big LAUNCH button; if nobody clicks for a few seconds it
 // grows and shakes. It never launches by itself.
 const IDLE_NUDGE_S = 3;
-// On phones the controls legend only shows for the first flights (it covers the view).
-const TOUCH_LEGEND_FLIGHTS = 3;
 const END_PAUSE = 0.55;
 const MAX_EXTRAS = 2;
 // New players: the first flights skip the results card (straight back to the
@@ -190,8 +188,6 @@ function launch() {
   ui.hud(true);
   showFlightControls();
   coach.start(save.tips, input.usedTouch);
-  S.boostEmpty = false;
-  ui.boostEmpty(false);
   const big = (stats.tiers.launcher || 0) >= 3;
   audio.launch(big);
   fx.shake(big ? 8 : 3);
@@ -221,9 +217,7 @@ function nudgeIdle(realDt) {
 }
 
 function showFlightControls() {
-  input.setRocket(hasRocket());
-  const touch = input.usedTouch;
-  ui.controls(true, { rocket: hasRocket(), touch, legend: !touch || save.flights < TOUCH_LEGEND_FLIGHTS, short: save.flights >= TOUCH_LEGEND_FLIGHTS });
+  ui.controls(true, { touch: input.usedTouch });
 }
 
 function setHint(kind, text, seconds) {
@@ -239,7 +233,7 @@ function updateHints() {
   if (!S.hintKind) {
     if (coach.active) return;
     if (hasRocket() && !save.tips.includes('boost') && f.t > 0.3) {
-      setHint('boost', touch ? 'Hold the 🚀 BOOST button!' : 'Hold SPACE to BOOST!', 4);
+      setHint('boost', '🚀 Your rocket fires while you HOLD!', 4);
     } else if (!save.tips.includes('skip') && canSkip(f) && f.y > 60) {
       setHint('skip', 'Tap Skip ⏩ to land right away', 3);
     }
@@ -338,8 +332,7 @@ function liveChecks() {
 function stepFlightFrame(dt) {
   const f = S.flight;
   const inp = S.autoplay ? botInput(f) : input.read();
-  const groundAt = S.world.terrain.height;
-  const c = coach.update(f, inp, !S.autoplay && input.holding, S.realDt, groundAt);
+  const c = coach.update(f, inp, !S.autoplay && input.holding, S.realDt);
   S.coachScale = c.scale;
   for (const tip of c.done) persist(markTip(save, tip));
   const descending = f.vy < 0 && f.fuel <= 0 && !f.grounded;
@@ -386,9 +379,6 @@ function stepFlightFrame(dt) {
   if (!coach.active && !S.autoplay && updateRush(f, S.world, dt) === 'coins') {
     fx.text(f.x + f.vx * 1.2, f.y + 4 * scaleAt(f.y), 'COIN RUSH!', { color: '#ffd23f', size: 30 });
   }
-  S.cue = coach.active ? null : landingCue(f, groundAt);
-  const empty = f.fuelMax > 0 && f.fuel <= 0;
-  if (empty !== S.boostEmpty) { S.boostEmpty = empty; ui.boostEmpty(empty); }
   updateHints();
   liveChecks();
   if (f.done) flightOver();
@@ -698,7 +688,6 @@ const input = createInput(canvas, {
 
 const juice = createJuice({ fx, audio, ui });
 const coach = createCoach(ui);
-input.bindBoost(document.getElementById('btn-boost'));
 
 window.addEventListener('pointerdown', () => { audio.unlock(); audio.startMusic(); }, { once: true, capture: true });
 window.addEventListener('keydown', () => { audio.unlock(); audio.startMusic(); }, { once: true, capture: true });

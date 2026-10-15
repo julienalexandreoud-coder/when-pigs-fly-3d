@@ -132,31 +132,6 @@ export function createRenderer(canvas) {
     }
   }
 
-  // "TAP!" ring that closes in on the pig as the ground gets near.
-  function drawCue(s) {
-    const cue = s.cue;
-    const f = s.flight;
-    if (!cue || !f) return;
-    const [cx, cy] = toScreen(f.x, f.y);
-    const pulse = 0.5 + 0.5 * Math.sin(s.t * 18);
-    const r = cue.hop ? 44 + pulse * 6 : 34 + (1 - cue.k) * 70;
-    g.lineWidth = cue.now ? 6 : 3;
-    g.strokeStyle = cue.now ? '#b8ff2e' : 'rgba(255,255,255,0.75)';
-    g.beginPath();
-    g.arc(cx, cy, r, 0, Math.PI * 2);
-    g.stroke();
-    if (!cue.now) return;
-    const label = cue.hop ? 'TAP = HOP' : 'TAP!';
-    g.font = `400 ${cue.hop ? 22 : 30}px Bangers, Impact, sans-serif`;
-    g.textAlign = 'center';
-    g.lineJoin = 'round';
-    g.lineWidth = 6;
-    g.strokeStyle = '#141014';
-    g.strokeText(label, cx, cy - r - 8);
-    g.fillStyle = '#b8ff2e';
-    g.fillText(label, cx, cy - r - 8);
-  }
-
   function drawOverlay(s) {
     const { W, H } = view;
     const dpr = view.odpr || 1;
@@ -191,7 +166,6 @@ export function createRenderer(canvas) {
       g.arc(cx, cy, r.max * k, 0, Math.PI * 2);
       g.stroke();
     }
-    if (s.mode === 'flying') drawCue(s);
     s.fx.drawTexts(g, (x, y) => toScreen(x, y));
     if (s.bestAlt >= 40 && s.mode === 'flying') {
       const [, sy] = toScreen(s.cam.x - (W / s.cam.z) * 0.4, s.bestAlt);

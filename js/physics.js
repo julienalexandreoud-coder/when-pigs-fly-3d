@@ -14,8 +14,8 @@ const GRASS_FRICTION = 11;
 // Automatic skims off the ground need real speed and a shallow angle.
 const SKIM_SPEED = 14;
 const SKIM_ANGLE = 0.45;
-// Flare: tapping just before touching down turns a crash into a bounce.
-export const FLARE_WINDOW = 0.45;
+// Bounce: touching down with enough speed bounces Pip back up by itself
+// (no timing needed), a limited number of times per flight.
 const FLARE_MIN_SPEED = 7;
 const FLARE_KEEP = 0.88;
 // Bounces are limited per flight (more with the Bouncy Belly) and each one
@@ -35,6 +35,8 @@ export const FLAP_PER_WING = 0.45;
 const FLAP_ACC = 17;
 const FLAP_MAX_CLIMB = 16;
 const FLAP_ANGLE = 0.75;
+// Holding with a rocket aims a little flatter, so the speed goes forward too.
+const ROCKET_ANGLE = 0.55;
 // Every full flip kicks the pig forward a little.
 const FLIP_KICK = 7;
 const FLIP_KICK_FRAC = 0.05;
@@ -93,7 +95,6 @@ export function createFlight(stats, { power = 1, perfect = false, golden = false
     coinChain: 0,
     comboMult: 1,
     bestCombo: 1,
-    pressT: -9,
     upHeld: false,
     flares: 0,
     starterBlasts,
@@ -136,9 +137,9 @@ function countFlips(f, dTheta) {
 function steer(f, input, gamma, rho, s, dt) {
   const control = f.dizzy > 0 ? 0.35 : 1;
   let dTheta;
-  if (f.flapping) {
-    // While flapping the nose points up the climb instead of spinning in loops.
-    dTheta = wrapAngle(FLAP_ANGLE - f.angle) * Math.min(1, 6 * dt);
+  if (f.flapping || (f.boosting && input.pitch > 0)) {
+    // Holding to climb points the nose up the climb instead of spinning in loops.
+    dTheta = wrapAngle((f.boosting ? ROCKET_ANGLE : FLAP_ANGLE) - f.angle) * Math.min(1, 6 * dt);
   } else if (input.pitch) {
     dTheta = clamp(input.pitch, -1, 1) * TURN_RATE * control * dt;
   } else {
@@ -157,7 +158,8 @@ function stepAir(f, input, dt, world) {
   const rho = densityAt(h);
   let s = Math.hypot(f.vx, f.vy);
   const gamma = Math.atan2(f.vy, f.vx);
-  f.flapping = Boolean(input.flap) && f.flap > 0 && !(input.boost && f.fuel > 0);
+  f.boosting = Boolean(input.boost) && f.fuel > 0;
+  f.flapping = Boolean(input.flap) && f.flap > 0 && !f.boosting;
   steer(f, input, gamma, rho, s, dt);
 
   if (s > 0.05) {
@@ -180,7 +182,6 @@ function stepAir(f, input, dt, world) {
     f.vy *= damp;
   }
 
-  f.boosting = Boolean(input.boost) && f.fuel > 0;
   if (f.boosting) {
     f.vx += Math.cos(f.angle) * st.thrust * dt;
     f.vy += Math.sin(f.angle) * st.thrust * dt;
@@ -225,12 +226,12 @@ function groundContact(f, terrain) {
   const impact = Math.atan2(-vn, Math.abs(vt));
   const surface = terrain.surface(f.x);
   f.rotAcc = 0;
-  if (flareReady(f) && speed >= FLARE_MIN_SPEED) {
-    flare(f, Math.atan(slope), speed, 'flare');
-    return;
-  }
   if (f.starterBlasts > 0 && surface !== 'pond') {
     starterBlast(f, gy);
+    return;
+  }
+  if (flareReady(f) && speed >= FLARE_MIN_SPEED) {
+    flare(f, Math.atan(slope), speed, 'flare');
     return;
   }
 
@@ -268,7 +269,7 @@ function groundContact(f, terrain) {
   setFace(f, 'splat', 9);
 }
 
-const flareReady = (f) => f.t - f.pressT <= FLARE_WINDOW && flaresLeft(f) > 0;
+const flareReady = (f) => flaresLeft(f) > 0;
 
 // A hidden TNT charge goes off where the pig lands (first flights only):
 // the new player's first touchdown is an explosion, not a flop.
@@ -297,7 +298,6 @@ function flare(f, groundAngle, speed, kind) {
   f.vy = Math.sin(a) * s;
   f.angle = a;
   f.grounded = false;
-  f.pressT = -9;
   f.flares += 1;
   f.bounces += 1;
   f.y += 0.05;
@@ -382,8 +382,6 @@ function track(f) {
 export function stepFlight(f, input, dt, world) {
   if (f.done) return;
   f.t += dt;
-  // Only real taps arm a flare (the autopilot never sets `pressed`).
-  if (input.pressed) f.pressT = f.t;
   f.upHeld = input.pitch > 0;
   f.hitCd = Math.max(0, f.hitCd - dt);
   f.dizzy = Math.max(0, f.dizzy - dt);

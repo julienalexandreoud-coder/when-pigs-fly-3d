@@ -5,7 +5,7 @@ import { createWorld } from '../js/world.js';
 import { createFlight, stepFlight, autopilot, simulateToEnd } from '../js/physics.js';
 import { comboFor, COMBO_GAP } from '../js/collide.js';
 import { computeStats } from '../js/upgrades.js';
-import { createCoach, landingCue, timeToImpact } from '../js/coach.js';
+import { createCoach } from '../js/coach.js';
 import { trickCoins } from '../js/economy.js';
 
 function fly(policy, seed = 7, stats = computeStats({})) {
@@ -18,44 +18,38 @@ function fly(policy, seed = 7, stats = computeStats({})) {
   return f;
 }
 
-// Taps just before every touchdown, like a good player.
-function flarePilot(f, world) {
-  const a = autopilot(f);
-  const tti = timeToImpact(f, world.terrain.height);
-  const fresh = f.t - f.pressT > 0.5;
-  return { ...a, pressed: fresh && (tti < 0.2 || f.grounded) };
-}
+// One button: holding does everything, so the pilot just glides here.
+const glider = (f) => autopilot(f);
 
-test('tapping before touchdown bounces the pig and flies farther', () => {
-  const glide = fly((f) => autopilot(f));
-  const flare = fly(flarePilot);
-  assert.equal(glide.flares, 0);
-  assert.ok(flare.flares >= 2, `flares ${flare.flares}`);
-  assert.ok(flare.distance > glide.distance * 1.5, `${flare.distance} vs ${glide.distance}`);
+test('touching down bounces Pip by itself (no tap needed), a limited number of times', () => {
+  const f = fly(glider);
+  assert.ok(f.flares >= 2, `flares ${f.flares}`);
 });
 
-test('flares always lose some speed, so a flight still ends', () => {
-  const f = fly(flarePilot, 3, computeStats({ launcher: 6, wings: 5 }));
+test('bounces always lose some speed, so a flight still ends', () => {
+  const f = fly(glider, 3, computeStats({ launcher: 6, wings: 5 }));
   assert.equal(f.done, true);
   assert.ok(f.t < 120, `t ${f.t}`);
 });
 
-test('holding a tap for long does not flare (only fresh presses count)', () => {
-  let first = true;
-  const f = fly((fl) => {
-    const p = first;
-    first = false;
-    return { ...autopilot(fl), pressed: p };
-  });
-  assert.equal(f.flares, 0);
-});
-
-test('the skip autopilot never flares', () => {
+test('the skip autopilot ends the flight (with the same automatic bounces)', () => {
   const world = createWorld(7);
   const f = createFlight(computeStats({ launcher: 3 }), { power: 1 });
   for (let i = 0; i < 240; i++) stepFlight(f, { pitch: 0, boost: false }, STEP, world);
   simulateToEnd(f, world);
-  assert.equal(f.flares, 0);
+  assert.equal(f.done, true);
+  assert.ok(f.flares <= 3);
+});
+
+test('holding with a rocket climbs steadily instead of looping', () => {
+  const world = createWorld(7);
+  const f = createFlight(computeStats({ launcher: 3, rocket: 2 }), { power: 1 });
+  for (let i = 0; i < 120 * 3 && !f.done; i++) {
+    stepFlight(f, { pitch: 1, boost: true, flap: true }, STEP, world);
+    f.events.length = 0;
+  }
+  assert.equal(f.flips, 0, 'no loops while the rocket burns');
+  assert.ok(f.vx > 0 && f.vy > 0, `${f.vx} ${f.vy}`);
 });
 
 test('a flip gives a forward kick', () => {
@@ -86,17 +80,6 @@ test('flares pay trick coins', () => {
   assert.equal(trickCoins(base), 0);
 });
 
-test('landing cue turns on near the ground and says "now" inside the flare window', () => {
-  const ground = () => 0;
-  const falling = { vx: 10, vy: -10, y: 0.9 + 3, x: 0, done: false, grounded: false, abduct: null, stats: computeStats({}), flares: 0 };
-  const cue = landingCue(falling, ground);
-  assert.equal(cue.now, true);
-  assert.equal(landingCue({ ...falling, y: 0.9 + 50 }, ground), null);
-  assert.equal(landingCue({ ...falling, vy: 5 }, ground), null);
-  assert.equal(landingCue({ ...falling, grounded: true, vx: 12 }, ground).hop, true);
-  assert.equal(landingCue({ ...falling, flares: 3 }, ground), null, 'no cue once the bounces are used up');
-});
-
 function fakeUi() {
   const calls = [];
   return { calls, coach: (title) => calls.push(title) };
@@ -118,18 +101,6 @@ test('coach slows time until the player holds, then teaches letting go', () => {
   for (let i = 0; i < 120 && !done.length; i++) done = coach.update(f, {}, false, 1 / 60, ground).done;
   assert.deepEqual(done, ['hold']);
   assert.equal(coach.active, false);
-});
-
-test('coach asks for a tap right before landing and marks the tip on tap', () => {
-  const ui = fakeUi();
-  const coach = createCoach(ui);
-  coach.start(['launch', 'hold'], false);
-  const f = { t: 3, vx: 12, vy: -12, y: 0.9 + 2, x: 10, grounded: false, abduct: null, done: false };
-  const r = coach.update(f, {}, false, 1 / 60, () => 0);
-  assert.ok(r.scale < 0.1);
-  assert.equal(ui.calls.at(-1), 'TAP NOW!');
-  const r2 = coach.update(f, { pressed: true }, true, 1 / 60, () => 0);
-  assert.deepEqual(r2.done, ['flare']);
 });
 
 test('a TNT barrel blows up once and launches the pig up and forward', async () => {
@@ -260,7 +231,7 @@ test('holding "fly up" flaps: a new player really climbs, energy runs out and re
 
 test('bounces are limited per flight and each one is weaker', async () => {
   const { flareLimit } = await import('../js/physics.js');
-  const f = fly(flarePilot);
+  const f = fly(glider);
   assert.equal(f.flares, flareLimit(f.stats));
   assert.equal(flareLimit(computeStats({})), 3);
   assert.ok(flareLimit(computeStats({ belly: 5 })) <= 5);
@@ -268,7 +239,7 @@ test('bounces are limited per flight and each one is weaker', async () => {
   const world = createWorld(7);
   const g = createFlight(computeStats({ launcher: 5 }), { power: 1 });
   for (let i = 0; i < 120 * 120 && !g.done; i++) {
-    stepFlight(g, flarePilot(g, world), STEP, world);
+    stepFlight(g, glider(g), STEP, world);
     for (const e of g.events) if (e.type === 'flare' || e.type === 'hop') speeds.push(e.speed);
     g.events.length = 0;
   }

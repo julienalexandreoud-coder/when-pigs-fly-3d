@@ -15,7 +15,7 @@ export function createUI(handlers) {
     coinPill: document.querySelector('.coin-pill'), fuel: $('fuel'), fuelFill: $('fuel-fill'), skip: $('btn-skip'),
     moonFill: $('moon-fill'), moonBest: $('moon-best'), moonPig: $('moon-pig'),
     needle: $('needle'), tap: $('tap-text'), hint: $('hint'),
-    boostBtn: $('btn-boost'), controls: $('controls'), combo: $('combo'), comboX: $('combo-x'),
+    controls: $('controls'), combo: $('combo'), comboX: $('combo-x'),
     coach: $('coach'), coachTitle: $('coach-title'), coachSub: $('coach-sub'),
     banner: $('banner'), bannerTitle: $('banner-title'), bannerKicker: $('banner-kicker'), toasts: $('toasts'),
     readyBest: $('ready-best'), readyCoins: $('ready-coins'), readyMedal: $('ready-medal'), missions: $('missions'),
@@ -66,28 +66,17 @@ export function createUI(handlers) {
     hideAll() { show(null); },
     booted() { el.boot.classList.add('hidden'); },
     hud(visible) { el.hud.classList.toggle('hidden', !visible); },
-    // In-flight controls: boost button (with a rocket) and a legend that
-    // always says exactly what to press. The pause screen repeats it.
-    // `legend`: show the on-screen legend (phones only for the first flights;
-    // the pause screen always lists the controls).
-    controls(visible, { rocket = false, touch = false, legend: showLegend = true, short = false } = {}) {
+    // In-flight controls legend: one button, one line. The pause screen repeats it.
+    // `legend`: show the on-screen legend (phones only for the first flights).
+    controls(visible, { touch = false, legend: showLegend = true } = {}) {
       document.body.classList.toggle('touch-ui', touch);
-      el.boostBtn.classList.toggle('hidden', !visible || !rocket);
       el.controls.classList.toggle('hidden', !visible || !showLegend);
-      el.controls.classList.toggle('compact', touch || short);
+      el.controls.classList.add('compact');
       if (visible) {
-        const k = (...keys) => keys.map((key) => `<kbd>${key}</kbd>`).join('');
         const legend = touch
-          ? `<span><b>HOLD</b> = fly up · <b>LET GO</b> = glide · <b>TAP</b> before landing = bounce${rocket ? ' · <b>🚀</b> = boost' : ''}</span>`
-          : `<span>HOLD ${k('W', 'A', '↑', '←')}${rocket ? '' : k('SPACE')} or click = fly up</span>`
-            + `<span>${k('S', 'D', '↓', '→')} or let go = dive</span>`
-            + `<span><b>TAP</b> just before landing = bounce</span>`
-            + (rocket ? `<span>${k('SPACE')} = boost</span>` : '')
-            + `<span>${k('ESC')} = pause</span>`;
-        // Experienced PC players get a one-line reminder; the pause card keeps the full list.
-        el.controls.innerHTML = !touch && short
-          ? `<span>HOLD ${k('W')}${k('↑')} or click = fly up · let go = dive${rocket ? ` · ${k('SPACE')} = boost` : ''} · ${k('ESC')} = pause</span>`
-          : legend;
+          ? '<span><b>HOLD</b> = fly up · <b>LET GO</b> = glide</span>'
+          : '<span><b>HOLD</b> (click or any key) = fly up · <b>LET GO</b> = glide · <kbd>ESC</kbd> = pause</span>';
+        el.controls.innerHTML = legend;
         $('pause-controls').innerHTML = legend;
       }
       if (!visible) this.combo(1);
@@ -125,7 +114,6 @@ export function createUI(handlers) {
         chip.classList.add('done');
       }
     },
-    boostEmpty(empty) { el.boostBtn.classList.toggle('empty', empty); },
     combo(mult) {
       const on = mult > 1;
       el.combo.classList.toggle('hidden', !on);
@@ -165,19 +153,13 @@ export function createUI(handlers) {
         }
         lastCoins = h.coins;
       }
-      el.fuel.classList.toggle('hidden', !h.fuelMax);
-      if (h.fuelMax) {
-        const k = h.fuel / h.fuelMax;
+      // One POWER bar: rocket fuel first, then wing flaps (holding burns both).
+      const max = (h.fuelMax || 0) + (h.flapMax || 0);
+      el.fuel.classList.toggle('hidden', !max);
+      if (max) {
+        const k = ((h.fuel || 0) + (h.flap || 0)) / max;
         el.fuelFill.style.width = `${k * 100}%`;
         el.fuel.classList.toggle('low', k > 0 && k < 0.2);
-      }
-      const flapBar = $('flapbar');
-      flapBar.classList.toggle('hidden', !h.flapMax);
-      if (h.flapMax) {
-        const k = h.flap / h.flapMax;
-        $('flap-fill').style.width = `${k * 100}%`;
-        flapBar.classList.toggle('low', k > 0 && k < 0.25);
-        flapBar.classList.toggle('empty', k <= 0);
       }
       el.skip.classList.toggle('hidden', !h.canSkip);
       const p = (a) => `${Math.min(100, (Math.max(0, a) / MOON_ALT) * 100)}%`;
