@@ -1,6 +1,10 @@
-# Handoff: submit "When Pigs Fly: Yeet to the Moon" to CrazyGames
+# Handoff: "When Pigs Fly: Yeet to the Moon" on CrazyGames
 
-State on 2026-10-15. Everything below is ready in this repo; only the portal upload is left.
+**Status 2026-10-15: SUBMITTED, Awaiting review (Basic Launch).** Portal game id b1cfa4cb-09aa-4122-a1f6-e41ff0a9ab20,
+build a235b90e-499b-4316-821d-f79f8e3b39e7 (commit 118791b). Arcade; tags 3D, Animal, Physics, Incremental, Skill;
+HTML5, Data Module saves, mobile BOTH, SDK mute; covers from `covers/v2`, videos from `videos/v2`.
+Next: wait for the review email; during Basic Launch, updates go through game page > "Submit new version" (steps 2-3 below).
+The steps below are kept as the recipe for future submissions.
 
 ## Why a new game
 The original "When Pigs Fly" (portal id f6f93a6e-72b0-488a-ade2-a32e31ccef54) was **rejected on 03.10.2026** after Basic Launch
