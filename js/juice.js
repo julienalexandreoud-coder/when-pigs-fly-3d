@@ -9,7 +9,6 @@ const HIT_DEBRIS = {
   asteroid: ['#9a8c80', '#6f625a'], plane: ['#f8f9fa', '#adb5bd', '#e63946'],
 };
 const DIRT = ['#8d5a35', '#7fd35a', '#6b4226', '#5cbf4f'];
-const AURA = ['+AURA', 'AURA +100', 'SHEESH', 'W', 'NO WAY', 'CRAZY'];
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 export function createJuice({ fx, audio, ui }) {
@@ -30,7 +29,7 @@ export function createJuice({ fx, audio, ui }) {
           lastCoinT = f.t;
           if (e.star) audio.star(); else audio.coin(streak);
           fx.burst(e.x, e.y, e.star ? 14 : 5, { colors: ['#ffe45c', '#fff3b0', '#ffb703'], speed: 7, life: 0.45, size: 4, gravity: 0, scale: k });
-          if (e.value >= 5 || streak >= 4 || e.mult > 1) fx.text(e.x, e.y, `+${e.value}`, { color: e.mult > 1 ? '#ff7aa2' : '#ffe45c', size: e.value >= 25 ? 30 : 22 });
+          if (e.value >= 25) fx.text(e.x, e.y, `+${e.value}`, { color: e.mult > 1 ? '#ff7aa2' : '#ffe45c', size: e.value >= 25 ? 30 : 22 });
           break;
         }
         case 'fuel':
@@ -78,7 +77,6 @@ export function createJuice({ fx, audio, ui }) {
         case 'flip':
           audio.flip();
           fx.text(e.x, e.y, e.n > 1 ? `FLIP x${e.n}! +${TRICKS.flip}` : `FLIP! +${TRICKS.flip}`, { color: '#ffd23f', size: 28 });
-          if (e.n >= 2) fx.text(e.x, e.y - 3 * k, pick(AURA), { color: '#b8ff2e', size: 24, life: 1.2 });
           break;
         case 'flare':
         case 'hop': {
@@ -89,7 +87,6 @@ export function createJuice({ fx, audio, ui }) {
           fx.burst(e.x, e.y, 18, { colors: ['#b8ff2e', '#ffffff', '#8ac926'], speed: 10, life: 0.6, size: 6, kind: 'confetti', gravity: 8 });
           const label = e.left === 0 ? 'LAST BOUNCE!' : e.type === 'hop' ? 'HOP!' : e.n >= 2 ? `BOUNCE x${e.n}!` : 'PERFECT BOUNCE!';
           fx.text(e.x, e.y + 2, `${label} +${TRICKS.flare}`, { color: '#b8ff2e', size: 30 });
-          if (e.n >= 4) fx.text(e.x, e.y - 1, pick(AURA), { color: '#ffd23f', size: 24, life: 1.2 });
           return { squash: 0.45 };
         }
         case 'tnt': {
@@ -133,7 +130,6 @@ export function createJuice({ fx, audio, ui }) {
         case 'skip':
           audio.skip();
           fx.burst(e.x, e.y, 10, { colors: e.type === 'skip' ? ['#9bf6ff', '#ffffff'] : ['#8ac926', '#b08968'], speed: 6, life: 0.5, size: 5, gravity: 8 });
-          if (e.type === 'skip') fx.text(e.x, e.y, 'SKIP!', { color: '#9bf6ff', size: 20 });
           return { squash: 0.3 };
         case 'hay':
           audio.boing();

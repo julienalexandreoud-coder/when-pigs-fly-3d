@@ -4,7 +4,7 @@ import { createWorld } from './world.js';
 import { SEG } from './terrain.js';
 import { createFlight, stepFlight, canSkip, simulateToEnd, rebound, summarize } from './physics.js';
 import { needleAt, meterPeriod, launchZone, launchPower } from './launch.js';
-import { nextGoal, affordableCount, bestAffordable } from './economy.js';
+import { nextGoal, affordableCount, autoBuyPlan } from './economy.js';
 import { missionDone, missionText } from './missions.js';
 import { skinById, upgradeById } from './upgrades.js';
 import {
@@ -196,7 +196,7 @@ function launch() {
     audio.perfect();
     audio.airhorn();
     fx.flash('255,255,255', 0.35);
-    ui.banner('PERFECT!', '+1000 AURA', 1000);
+    ui.banner('PERFECT LAUNCH!', 'extra speed', 1000);
   } else if (zone === 'weak' && save.flights > 0) {
     ui.banner('MID LAUNCH', 'tap in the green', 900);
   }
@@ -283,7 +283,6 @@ function milestoneCheck() {
   const bonus = milestoneBonus(m);
   f.coins += bonus;
   audio.star();
-  fx.text(f.x, f.y + 3 * scaleAt(f.y), `${formatDistance(m)}! +${bonus}`, { color: '#b8ff2e', size: 30 });
   flyCoins(f.x, f.y, Math.min(5, 1 + Math.floor(bonus / 4)));
 }
 
@@ -419,26 +418,23 @@ function cashOut(f, total) {
   setTimeout(() => audio.buy(), 150);
 }
 
-// Best affordable upgrade for the one-tap button (see economy.bestAffordable).
-function quickOption() {
-  const o = bestAffordable(save);
-  return o ? { ...o, line: upgradeById(o.id).name } : null;
+// "Upgrade & Yeet": the results card shows what the main button will buy.
+function refreshPlan() {
+  ui.panels.plan(autoBuyPlan(save));
+  const goal = autoBuyPlan(save).buys.length ? null : nextGoal(save);
+  ui.panels.goalBar(goal ? { name: goal.name, cost: goal.cost, have: save.coins } : null);
 }
 
-function quickUpgrade() {
-  const o = quickOption();
-  if (!o) return;
-  const r = buyUpgrade(save, o.id);
-  if (!r.ok) { audio.deny(); return; }
-  persist(r.save);
+// Buys everything the plan lists; returns how many upgrades it bought.
+function applyPlan() {
+  const p = autoBuyPlan(save);
+  if (!p.buys.length) return 0;
+  persist(update(save, { coins: p.coins, upgrades: p.upgrades }));
   audio.buy();
   audio.medal();
   fx.flash('184,255,46', 0.35);
-  ui.toast(`<b>${o.line}</b> upgraded to <b>${o.name}</b>! Fly farther!`);
-  ui.panels.quickUpgrade(quickOption(), true);
-  const goal = nextGoal(save);
-  ui.panels.goalBar(goal ? { name: goal.name, cost: goal.cost, have: save.coins } : null);
-  ui.badge(affordableCount(save));
+  ui.toast(`Upgraded: <b>${p.lines.map((l) => `${l.line} Lv ${l.level + 1}`).join(', ')}</b>`);
+  return p.buys.length;
 }
 
 // First flights: no results card. Coins, quests and records were already
@@ -480,7 +476,8 @@ function resultsView() {
     ...missions.map((m) => ({ kind: 'mission', text: `Quest cleared: ${missionText(m)} +${formatInt(m.reward)}` })),
   ];
   // "You can buy X right now" is what the UPGRADE NOW button already says.
-  const hooks = S.result.nudges.filter((t) => !(quickOption() && /right now/.test(t))).map((text) => ({ kind: 'nudge', text: `👉 ${text}` }));
+  const planned = autoBuyPlan(save).buys.length > 0;
+  const hooks = S.result.nudges.filter((t) => !(planned && /right now/.test(t))).map((text) => ({ kind: 'nudge', text: `👉 ${text}` }));
   const chest = dailyStatus(save, dayKey());
   const tomorrow = chest.available ? [] : [{ kind: 'medal', text: `🎁 Tomorrow: Day ${chest.tomorrowDay} chest = +${formatInt(chest.tomorrow)} coins` }];
   const extras = [...rewards.slice(0, MAX_EXTRAS - 1), ...hooks.slice(0, 1), ...tomorrow, ...hooks.slice(1)].slice(0, MAX_EXTRAS);
@@ -491,8 +488,8 @@ function resultsView() {
   else if (summary.cause === 'splash') title = 'SPLOOSH';
   else if (summary.maxAlt >= 1000) title = 'HUGE AURA';
   else if (summary.time < 6) title = 'L + SPLAT 💀';
-  // The "Next: ..." bar says the same as the UPGRADE NOW button; show one of them.
-  const goal = quickOption() ? null : nextGoal(save);
+  // The "Next: ..." bar says the same as the Upgrade & Yeet chips; show one of them.
+  const goal = planned ? null : nextGoal(save);
   return {
     title, cause: CAUSES[summary.cause] || '', lines, total: pay.total, extras,
     goal: goal ? { name: goal.name, cost: goal.cost, have: save.coins } : null,
@@ -507,7 +504,7 @@ function showResults() {
   ui.hud(false);
   ui.controls(false);
   ui.panels.results(resultsView(), { tick: (i) => audio.tick(i), done: () => audio.buy() });
-  ui.panels.quickUpgrade(quickOption());
+  ui.panels.plan(autoBuyPlan(save));
   ui.show('results');
   ui.badge(affordableCount(save));
   const r = S.result;
@@ -525,8 +522,10 @@ function setYeetLabels() {
   for (const id of ['btn-barn-yeet', 'btn-records-yeet']) document.getElementById(id).textContent = text;
 }
 
-async function yeetAgain() {
+// From the results, the main button first buys the planned upgrades.
+async function yeetAgain(upgrade = false) {
   audio.click();
+  if (upgrade && S.mode === 'results') applyPlan();
   if (canAds() && Sdk.shouldShowMidgame(save.flights)) {
     Sdk.markMidgame();
     await showAd('midgame');
@@ -545,6 +544,7 @@ function openBarn(from) {
 function closeBarn() {
   if (S.backTo === 'results') {
     ui.show('results');
+    refreshPlan();
     ui.badge(affordableCount(save));
   } else {
     ui.ready(save, { golden: S.golden, goldenOffer: canRewarded() && hasRocket() && save.flights >= 2 });
@@ -634,6 +634,7 @@ const ui = createUI({
     audio.buy();
     ui.toast(`<b>+${formatInt(bonus)}</b> coins. stonks.`);
     ui.panels.skipCount(bonus * 2);
+    refreshPlan();
     document.getElementById('btn-double').classList.add('hidden');
   },
   async onWind() {
@@ -648,14 +649,13 @@ const ui = createUI({
     showFlightControls();
     Sdk.gameplayStart();
   },
-  onAgain: yeetAgain,
+  onAgain: () => yeetAgain(true),
   onLaunch() {
     if (S.mode !== 'ready' || S.adBusy || S.modal) return;
     audio.unlock();
     audio.startMusic();
     launch();
   },
-  onQuickUp: quickUpgrade,
   onResume: resume,
   onQuit() {
     if (S.mode !== 'paused') return;

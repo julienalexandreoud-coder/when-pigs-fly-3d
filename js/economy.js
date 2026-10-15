@@ -95,6 +95,28 @@ export function bestAffordable(save) {
   return shopOptions(save).filter((o) => o.kind === 'upgrade' && o.cost <= save.coins).sort((a, b) => rank(a.id) - rank(b.id))[0] || null;
 }
 
+// "Upgrade & Yeet": keep buying the cheapest upgrade the coins cover, so
+// every line levels up evenly (like the auto-buy in launch-to-the-Moon games).
+// Returns what it would buy, the coins spent and the resulting levels.
+export function autoBuyPlan(save) {
+  let coins = save.coins;
+  let upgrades = { ...save.upgrades };
+  const buys = [];
+  for (let guard = 0; guard < 100; guard++) {
+    const next = shopOptions({ ...save, coins, upgrades }).find((o) => o.kind === 'upgrade' && o.cost <= coins);
+    if (!next) break;
+    coins -= next.cost;
+    upgrades = { ...upgrades, [next.id]: (upgrades[next.id] || 0) + 1 };
+    buys.push(next);
+  }
+  // One chip per line, at the level it ends on.
+  const lines = [...new Set(buys.map((b) => b.id))].map((id) => {
+    const u = UPGRADES.find((x) => x.id === id);
+    return { id, line: u.name, level: upgrades[id], name: u.levels[upgrades[id]].name };
+  });
+  return { buys, lines, spent: save.coins - coins, coins, upgrades };
+}
+
 export const affordableCount = (save) => shopOptions(save).filter((o) => o.kind === 'upgrade' && o.cost <= save.coins).length;
 
 export function nextGoal(save) {

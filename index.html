@@ -15,26 +15,30 @@
   <div class="vignette" aria-hidden="true"></div>
   <div id="boot" class="boot"><div class="boot-pig"></div><p>loading the pig…</p></div>
 
-  <!-- In-flight HUD -->
+  <!-- In-flight HUD: stats top-left, coins top-center, buttons top-right,
+       Moon bar on the right edge, POWER bottom-left. -->
   <div id="hud" class="hidden">
-    <div class="hud-left">
-      <button id="btn-pause" class="icon" aria-label="Pause">
-        <svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>
-      </button>
+    <div class="hud-tl">
+      <div class="hud-panel hud-stats">
+        <div class="alt"><i>↑</i><span id="hud-alt">0 m</span></div>
+        <div class="dist"><i>→</i><span id="hud-dist">0 m</span></div>
+        <div class="spd" id="hud-speed">0 km/h</div>
+      </div>
+      <div id="goal-chip" class="hud-panel goal-chip"><small>NEXT GOAL</small><b id="goal-chip-text"></b><div class="gbar"><i id="goal-chip-fill"></i></div></div>
+    </div>
+    <div class="hud-tc">
+      <div class="coin-pill"><span class="coin-icon"></span><span id="hud-coins">0</span></div>
+      <div id="combo" class="combo hidden"><b id="combo-x">x1.5</b></div>
+    </div>
+    <div class="hud-tr">
       <button id="btn-sound" class="icon" aria-label="Toggle sound">
         <svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke-width="2" stroke-linecap="round"/><path class="cross" d="M16 9l5 6M21 9l-5 6" fill="none" stroke-width="2.4" stroke-linecap="round"/></svg>
       </button>
-    </div>
-    <div id="goal-chip" class="goal-chip"><small>🎯 GOAL</small><b id="goal-chip-text"></b><div class="gbar"><i id="goal-chip-fill"></i></div></div>
-    <div class="hud-center">
-      <div id="hud-alt" class="alt">0 m</div>
-      <div class="sub"><span id="hud-speed">0 km/h</span><span class="dot">•</span><span id="hud-dist">0 m</span></div>
-    </div>
-    <div class="hud-right">
-      <div class="coin-pill"><span class="coin-icon"></span><span id="hud-coins">0</span></div>
+      <button id="btn-pause" class="icon" aria-label="Pause">
+        <svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>
+      </button>
     </div>
     <div id="moonbar" class="moonbar" aria-hidden="true">
-      <div class="moon-label">MOON<small>10 KM</small></div>
       <div class="moon-cap"></div>
       <div class="track"><div id="moon-fill" class="fill"></div><div id="moon-best" class="best"></div><div id="moon-pig" class="pig"></div></div>
     </div>
@@ -44,7 +48,6 @@
     </div>
   </div>
 
-  <div id="combo" class="combo hidden"><small>COIN COMBO</small><b id="combo-x">x1.5</b></div>
   <div id="controls" class="controls hidden"></div>
   <div id="coach" class="coach hidden" aria-live="polite"><div class="coach-hand">👆</div><b id="coach-title"></b><small id="coach-sub"></small></div>
 
@@ -103,9 +106,12 @@
         <div class="bar"><div id="goal-fill" class="fill"></div></div>
       </div>
       <div class="actions">
-        <button id="btn-quick-up" class="btn quick hidden"></button>
         <button id="btn-double" class="btn ad"><span class="play"></span>Double the coins</button>
         <button id="btn-wind" class="btn ad"><span class="play"></span>Second wind: bounce back up</button>
+      </div>
+      <div id="res-plan" class="plan hidden">
+        <small>UPGRADE &amp; YEET BUYS:</small>
+        <div id="plan-chips" class="chips"></div>
       </div>
       <div class="row foot">
         <button id="btn-barn2" class="btn secondary">Shop<span class="badge hidden" id="barn-badge2">0</span></button>

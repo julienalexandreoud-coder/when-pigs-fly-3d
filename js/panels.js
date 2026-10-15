@@ -15,7 +15,6 @@ export function createPanels(handlers) {
   $('btn-double').addEventListener('click', handlers.onDouble);
   $('btn-wind').addEventListener('click', handlers.onWind);
   $('btn-again').addEventListener('click', handlers.onAgain);
-  $('btn-quick-up').addEventListener('click', handlers.onQuickUp);
   $('btn-barn2').addEventListener('click', handlers.onBarn);
   $('btn-close-barn').addEventListener('click', handlers.onCloseBarn);
   $('btn-close-records').addEventListener('click', handlers.onCloseRecords);
@@ -82,16 +81,17 @@ export function createPanels(handlers) {
     }, 55);
   }
 
-  // One-tap upgrade: the cheapest upgrade the player can afford right now.
-  function quickUpgrade(opt, bought = false) {
-    const b = $('btn-quick-up');
-    b.classList.toggle('hidden', !opt);
-    b.classList.remove('bought');
-    if (bought) {
-      void b.offsetWidth;
-      b.classList.add('bought');
-    }
-    if (opt) b.innerHTML = `UPGRADE NOW: ${opt.name}<small>${opt.line} · <span class="coin-icon"></span>${formatInt(opt.cost)}</small>`;
+  // "Upgrade & Yeet": the upgrades the main button will buy before the next
+  // flight, one chip per line, and the button label to match.
+  function plan(p) {
+    const has = p.buys.length > 0;
+    $('res-plan').classList.toggle('hidden', !has);
+    $('plan-chips').innerHTML = has
+      ? p.lines.map((l) => `<span class="chip">${l.line} <b>Lv ${l.level + 1}</b></span>`).join('')
+        + `<span class="chip cost"><span class="coin-icon"></span>−${formatInt(p.spent)}</span>`
+      : '';
+    $('btn-again').innerHTML = `${has ? 'Upgrade &amp; Yeet!' : 'Yeet again'}<small class="key">SPACE</small>`;
+    $('btn-again').classList.toggle('upgrade', has);
   }
 
   function goalBar(goal) {
@@ -163,5 +163,5 @@ export function createPanels(handlers) {
     }).join('');
   }
 
-  return { results, skipCount, quickUpgrade, goalBar, barn, records, missionText };
+  return { results, skipCount, plan, goalBar, barn, records, missionText };
 }

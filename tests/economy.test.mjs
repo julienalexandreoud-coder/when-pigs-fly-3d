@@ -69,3 +69,15 @@ test('shop options, badge count and next goal follow the wallet', () => {
   assert.ok(goal.cost > 50);
   assert.ok(SKINS.some((s) => s.cost === null), 'golden pig is not for sale');
 });
+
+test('autoBuyPlan levels the cheapest upgrades evenly and never overspends', async () => {
+  const { autoBuyPlan } = await import('../js/economy.js');
+  const { DEFAULT_SAVE, update } = await import('../js/save.js');
+  const none = autoBuyPlan(update(DEFAULT_SAVE, { coins: 0 }));
+  assert.equal(none.buys.length, 0);
+  const plan = autoBuyPlan(update(DEFAULT_SAVE, { coins: 200 }));
+  assert.ok(plan.buys.length >= 3, `${plan.buys.length} buys`);
+  assert.ok(plan.spent <= 200 && plan.coins === 200 - plan.spent);
+  assert.ok(plan.lines.length >= 3, 'spreads over several lines');
+  assert.ok(!plan.upgrades.tank || plan.upgrades.rocket, 'never buys a tank without a rocket');
+});
